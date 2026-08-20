@@ -5086,3 +5086,3957 @@ window.exportData =
 // ============================================================
 // END
 // ============================================================
+// ============================================================
+// お薬・健康管理アプリ app.js
+// 後半
+// ============================================================
+
+
+// ============================================================
+// ① 共通ユーティリティ
+// ============================================================
+
+function createId(prefix = "id") {
+    return (
+        prefix +
+        "_" +
+        Date.now().toString(36) +
+        "_" +
+        Math.random().toString(36).slice(2, 10)
+    );
+}
+
+
+function nowLocalDateTime() {
+    const now = new Date();
+
+    const offset =
+        now.getTimezoneOffset() * 60000;
+
+    return new Date(now.getTime() - offset)
+        .toISOString()
+        .slice(0, 16);
+}
+
+
+function todayString() {
+    const d = new Date();
+
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+
+    return `${y}-${m}-${day}`;
+}
+
+
+function formatDateTime(value) {
+
+    if (!value) {
+        return "";
+    }
+
+    const d = new Date(value);
+
+    if (Number.isNaN(d.getTime())) {
+        return value;
+    }
+
+    return d.toLocaleString("ja-JP", {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+    });
+}
+
+
+function escapeHTML(value) {
+
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+function showMessage(message) {
+
+    if (typeof showToast === "function") {
+        showToast(message);
+        return;
+    }
+
+    alert(message);
+}
+
+
+// ============================================================
+// ② ローカルデータ管理
+// ============================================================
+
+const STORAGE_KEY = "my_health_management_app_v1";
+
+
+let appData = {
+    basicInfo: {
+        gender: "",
+        age: "",
+        height: "",
+        weight: ""
+    },
+
+    healthRecords: [],
+
+    personalRecords: {
+        heightHistory: [],
+        weightHistory: [],
+        hospitalHistory: [],
+        allergies: [],
+        diseases: [],
+        medicalRecords: []
+    },
+
+    medications: [],
+
+    doseLogs: [],
+
+    alarms: [],
+
+    appointments: [],
+
+    notificationSettings: {
+        healthMorning: true,
+        healthNoon: true,
+        healthEvening: true,
+        medication: true,
+        lowStock: true
+    },
+
+    notificationHistory: []
+};
+
+
+function loadAppData() {
+
+    try {
+
+        const saved =
+            localStorage.getItem(STORAGE_KEY);
+
+        if (!saved) {
+            return;
+        }
+
+        const parsed =
+            JSON.parse(saved);
+
+        appData = {
+            ...appData,
+            ...parsed
+        };
+
+        appData.basicInfo =
+            {
+                ...{
+                    gender: "",
+                    age: "",
+                    height: "",
+                    weight: ""
+                },
+                ...(parsed.basicInfo || {})
+            };
+
+        appData.personalRecords =
+            {
+                ...{
+                    heightHistory: [],
+                    weightHistory: [],
+                    hospitalHistory: [],
+                    allergies: [],
+                    diseases: [],
+                    medicalRecords: []
+                },
+                ...(parsed.personalRecords || {})
+            };
+
+        appData.notificationSettings =
+            {
+                ...{
+                    healthMorning: true,
+                    healthNoon: true,
+                    healthEvening: true,
+                    medication: true,
+                    lowStock: true
+                },
+                ...(parsed.notificationSettings || {})
+            };
+
+    } catch (error) {
+
+        console.error(
+            "データ読み込みエラー:",
+            error
+        );
+    }
+}
+
+
+function saveAppData() {
+
+    try {
+
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify(appData)
+        );
+
+    } catch (error) {
+
+        console.error(
+            "データ保存エラー:",
+            error
+        );
+
+        alert(
+            "データを保存できませんでした。"
+        );
+    }
+}
+
+
+// ============================================================
+// ③ 基本情報
+// ============================================================
+
+function loadBasicInfo() {
+
+    const info =
+        appData.basicInfo;
+
+    const gender =
+        document.getElementById("basic-gender");
+
+    const age =
+        document.getElementById("basic-age");
+
+    const height =
+        document.getElementById("basic-height");
+
+    const weight =
+        document.getElementById("basic-weight");
+
+
+    if (gender) {
+        gender.value =
+            info.gender || "";
+    }
+
+    if (age) {
+        age.value =
+            info.age || "";
+    }
+
+    if (height) {
+        height.value =
+            info.height || "";
+    }
+
+    if (weight) {
+        weight.value =
+            info.weight || "";
+    }
+}
+
+
+function saveBasicInfo() {
+
+    const gender =
+        document.getElementById("basic-gender");
+
+    const age =
+        document.getElementById("basic-age");
+
+    const height =
+        document.getElementById("basic-height");
+
+    const weight =
+        document.getElementById("basic-weight");
+
+
+    appData.basicInfo = {
+
+        gender:
+            gender?.value || "",
+
+        age:
+            age?.value || "",
+
+        height:
+            height?.value || "",
+
+        weight:
+            weight?.value || ""
+    };
+
+
+    saveAppData();
+
+    showMessage(
+        "基本情報を保存しました。"
+    );
+
+    updateHealthDashboard();
+}
+
+
+// ============================================================
+// ④ 体調記録
+// ============================================================
+
+function saveHealthRecord() {
+
+    const datetime =
+        document.getElementById("health-datetime");
+
+    const headache =
+        document.getElementById("health-headache");
+
+    const systolic =
+        document.getElementById("health-systolic");
+
+    const diastolic =
+        document.getElementById("health-diastolic");
+
+    const pulse =
+        document.getElementById("health-pulse");
+
+    const wake =
+        document.getElementById("health-wake");
+
+    const sleep =
+        document.getElementById("health-sleep");
+
+    const food =
+        document.getElementById("health-food");
+
+    const alcohol =
+        document.getElementById("health-alcohol");
+
+    const smoking =
+        document.getElementById("health-smoking");
+
+    const breakfastTime =
+        document.getElementById("health-breakfast-time");
+
+    const breakfast =
+        document.getElementById("health-breakfast");
+
+    const lunchTime =
+        document.getElementById("health-lunch-time");
+
+    const lunch =
+        document.getElementById("health-lunch");
+
+    const dinnerTime =
+        document.getElementById("health-dinner-time");
+
+    const dinner =
+        document.getElementById("health-dinner");
+
+    const mood =
+        document.getElementById("health-mood");
+
+    const diary =
+        document.getElementById("health-diary");
+
+
+    const record = {
+
+        id:
+            createId("health"),
+
+        datetime:
+            datetime?.value ||
+            nowLocalDateTime(),
+
+        headache:
+            headache?.value || "",
+
+        bloodPressure: {
+
+            systolic:
+                systolic?.value || "",
+
+            diastolic:
+                diastolic?.value || "",
+
+            pulse:
+                pulse?.value || ""
+        },
+
+        lifestyle: {
+
+            wake:
+                wake?.value || "",
+
+            sleep:
+                sleep?.value || "",
+
+            food:
+                food?.value || ""
+        },
+
+        alcohol:
+            alcohol?.value || "",
+
+        smoking:
+            smoking?.value || "",
+
+        meals: {
+
+            breakfast: {
+
+                time:
+                    breakfastTime?.value || "",
+
+                food:
+                    breakfast?.value || ""
+            },
+
+            lunch: {
+
+                time:
+                    lunchTime?.value || "",
+
+                food:
+                    lunch?.value || ""
+            },
+
+            dinner: {
+
+                time:
+                    dinnerTime?.value || "",
+
+                food:
+                    dinner?.value || ""
+            }
+        },
+
+        mood:
+            mood?.value || "",
+
+        diary:
+            diary?.value || "",
+
+        createdAt:
+            new Date().toISOString()
+    };
+
+
+    appData.healthRecords.push(record);
+
+    saveAppData();
+
+    showMessage(
+        "体調記録を保存しました。"
+    );
+
+
+    if (
+        typeof renderHealthRecords ===
+        "function"
+    ) {
+        renderHealthRecords();
+    }
+
+    updateHealthCharts();
+
+    updateHealthDashboard();
+}
+
+
+function deleteHealthRecord(id) {
+
+    if (
+        !confirm(
+            "この体調記録を削除しますか？"
+        )
+    ) {
+        return;
+    }
+
+
+    appData.healthRecords =
+        appData.healthRecords.filter(
+            record =>
+                record.id !== id
+        );
+
+
+    saveAppData();
+
+    renderHealthRecords();
+
+    updateHealthCharts();
+}
+
+
+function renderHealthRecords() {
+
+    const container =
+        document.getElementById(
+            "health-record-history"
+        );
+
+    if (!container) {
+        return;
+    }
+
+
+    const records =
+        [...appData.healthRecords]
+            .sort(
+                (a, b) =>
+                    new Date(b.datetime) -
+                    new Date(a.datetime)
+            );
+
+
+    if (!records.length) {
+
+        container.innerHTML = `
+            <div class="text-center text-slate-400 py-10">
+                まだ体調記録がありません。
+            </div>
+        `;
+
+        return;
+    }
+
+
+    container.innerHTML =
+        records.map(record => {
+
+            const bp =
+                record.bloodPressure;
+
+            return `
+                <div class="bg-white border border-slate-100 rounded-xl p-4 shadow-sm">
+
+                    <div class="flex items-center justify-between gap-3">
+
+                        <div class="font-bold text-slate-800">
+                            ${escapeHTML(
+                                formatDateTime(
+                                    record.datetime
+                                )
+                            )}
+                        </div>
+
+                        <button
+                            type="button"
+                            class="icon-btn danger"
+                            onclick="deleteHealthRecord('${record.id}')"
+                        >
+                            🗑
+                        </button>
+
+                    </div>
+
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+
+                        <div>
+                            <div class="text-xs text-slate-400">
+                                頭痛
+                            </div>
+                            <div class="font-semibold">
+                                ${escapeHTML(
+                                    record.headache || "-"
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="text-xs text-slate-400">
+                                血圧
+                            </div>
+                            <div class="font-semibold">
+                                ${
+                                    bp?.systolic ||
+                                    bp?.diastolic
+                                    ?
+                                    `${escapeHTML(
+                                        bp.systolic
+                                    )}/${escapeHTML(
+                                        bp.diastolic
+                                    )} mmHg`
+                                    :
+                                    "-"
+                                }
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="text-xs text-slate-400">
+                                脈拍
+                            </div>
+                            <div class="font-semibold">
+                                ${escapeHTML(
+                                    bp?.pulse || "-"
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="text-xs text-slate-400">
+                                こころ
+                            </div>
+                            <div class="font-semibold">
+                                ${escapeHTML(
+                                    record.mood || "-"
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    ${
+                        record.diary
+                        ?
+                        `
+                        <div class="mt-4 bg-slate-50 rounded-lg p-3">
+                            <div class="text-xs text-slate-400 mb-1">
+                                プチ日記
+                            </div>
+                            <div class="text-sm whitespace-pre-wrap">
+                                ${escapeHTML(
+                                    record.diary
+                                )}
+                            </div>
+                        </div>
+                        `
+                        :
+                        ""
+                    }
+
+                </div>
+            `;
+
+        }).join("");
+}
+
+
+// ============================================================
+// ⑤ 自身記録
+// ============================================================
+
+function saveHeightRecord() {
+
+    const input =
+        document.getElementById(
+            "record-height"
+        );
+
+    if (!input?.value) {
+        alert("身長を入力してください。");
+        return;
+    }
+
+
+    appData.personalRecords
+        .heightHistory
+        .push({
+
+            id:
+                createId("height"),
+
+            value:
+                Number(input.value),
+
+            date:
+                todayString()
+        });
+
+
+    saveAppData();
+
+    input.value = "";
+
+    renderPersonalRecords();
+
+    showMessage(
+        "身長を記録しました。"
+    );
+}
+
+
+function saveWeightRecord() {
+
+    const input =
+        document.getElementById(
+            "record-weight"
+        );
+
+    if (!input?.value) {
+        alert("体重を入力してください。");
+        return;
+    }
+
+
+    appData.personalRecords
+        .weightHistory
+        .push({
+
+            id:
+                createId("weight"),
+
+            value:
+                Number(input.value),
+
+            date:
+                todayString()
+        });
+
+
+    saveAppData();
+
+    input.value = "";
+
+    renderPersonalRecords();
+
+    updateHealthCharts();
+
+    showMessage(
+        "体重を記録しました。"
+    );
+}
+
+
+function saveAllergy() {
+
+    const input =
+        document.getElementById(
+            "allergy-input"
+        );
+
+    const value =
+        input?.value.trim();
+
+    if (!value) {
+        return;
+    }
+
+
+    appData.personalRecords
+        .allergies
+        .push({
+
+            id:
+                createId("allergy"),
+
+            name:
+                value,
+
+            createdAt:
+                new Date().toISOString()
+        });
+
+
+    saveAppData();
+
+    input.value = "";
+
+    renderPersonalRecords();
+}
+
+
+function saveDisease() {
+
+    const input =
+        document.getElementById(
+            "disease-input"
+        );
+
+    const value =
+        input?.value.trim();
+
+    if (!value) {
+        return;
+    }
+
+
+    appData.personalRecords
+        .diseases
+        .push({
+
+            id:
+                createId("disease"),
+
+            name:
+                value,
+
+            createdAt:
+                new Date().toISOString()
+        });
+
+
+    saveAppData();
+
+    input.value = "";
+
+    renderPersonalRecords();
+}
+
+
+function deletePersonalItem(
+    type,
+    id
+) {
+
+    if (
+        !confirm(
+            "この記録を削除しますか？"
+        )
+    ) {
+        return;
+    }
+
+
+    if (
+        type === "allergy"
+    ) {
+
+        appData.personalRecords
+            .allergies =
+            appData.personalRecords
+                .allergies
+                .filter(
+                    item =>
+                        item.id !== id
+                );
+    }
+
+
+    if (
+        type === "disease"
+    ) {
+
+        appData.personalRecords
+            .diseases =
+            appData.personalRecords
+                .diseases
+                .filter(
+                    item =>
+                        item.id !== id
+                );
+    }
+
+
+    saveAppData();
+
+    renderPersonalRecords();
+}
+
+
+function renderPersonalRecords() {
+
+    const allergies =
+        document.getElementById(
+            "allergy-list"
+        );
+
+    const diseases =
+        document.getElementById(
+            "disease-list"
+        );
+
+
+    if (allergies) {
+
+        allergies.innerHTML =
+            appData.personalRecords
+                .allergies
+                .map(item => `
+                    <div class="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                        <span>
+                            ${escapeHTML(item.name)}
+                        </span>
+
+                        <button
+                            class="icon-btn danger"
+                            onclick="deletePersonalItem('allergy','${item.id}')"
+                        >
+                            🗑
+                        </button>
+                    </div>
+                `)
+                .join("")
+                ||
+                `<p class="text-sm text-slate-400">
+                    登録されていません。
+                </p>`;
+    }
+
+
+    if (diseases) {
+
+        diseases.innerHTML =
+            appData.personalRecords
+                .diseases
+                .map(item => `
+                    <div class="flex items-center justify-between bg-slate-50 rounded-lg p-3">
+                        <span>
+                            ${escapeHTML(item.name)}
+                        </span>
+
+                        <button
+                            class="icon-btn danger"
+                            onclick="deletePersonalItem('disease','${item.id}')"
+                        >
+                            🗑
+                        </button>
+                    </div>
+                `)
+                .join("")
+                ||
+                `<p class="text-sm text-slate-400">
+                    登録されていません。
+                </p>`;
+    }
+
+
+    const heightHistory =
+        document.getElementById(
+            "height-history"
+        );
+
+    if (heightHistory) {
+
+        heightHistory.innerHTML =
+            appData.personalRecords
+                .heightHistory
+                .slice()
+                .reverse()
+                .map(item => `
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span>${escapeHTML(item.date)}</span>
+                        <strong>${escapeHTML(item.value)} cm</strong>
+                    </div>
+                `)
+                .join("");
+    }
+
+
+    const weightHistory =
+        document.getElementById(
+            "weight-history"
+        );
+
+    if (weightHistory) {
+
+        weightHistory.innerHTML =
+            appData.personalRecords
+                .weightHistory
+                .slice()
+                .reverse()
+                .map(item => `
+                    <div class="flex justify-between py-2 border-b border-slate-100">
+                        <span>${escapeHTML(item.date)}</span>
+                        <strong>${escapeHTML(item.value)} kg</strong>
+                    </div>
+                `)
+                .join("");
+    }
+}
+
+
+// ============================================================
+// ⑥ 通院履歴
+// ============================================================
+
+function saveHospitalHistory() {
+
+    const date =
+        document.getElementById(
+            "hospital-date"
+        );
+
+    const hospital =
+        document.getElementById(
+            "hospital-name"
+        );
+
+    const department =
+        document.getElementById(
+            "hospital-department"
+        );
+
+    const doctor =
+        document.getElementById(
+            "hospital-doctor"
+        );
+
+    const memo =
+        document.getElementById(
+            "hospital-memo"
+        );
+
+
+    if (!hospital?.value.trim()) {
+
+        alert(
+            "医療機関名を入力してください。"
+        );
+
+        return;
+    }
+
+
+    appData.personalRecords
+        .hospitalHistory
+        .push({
+
+            id:
+                createId("hospital"),
+
+            date:
+                date?.value || todayString(),
+
+            hospital:
+                hospital.value.trim(),
+
+            department:
+                department?.value.trim() || "",
+
+            doctor:
+                doctor?.value.trim() || "",
+
+            memo:
+                memo?.value.trim() || ""
+        });
+
+
+    saveAppData();
+
+    document
+        .getElementById(
+            "hospital-form"
+        )
+        ?.reset();
+
+    renderHospitalHistory();
+
+    showMessage(
+        "通院履歴を保存しました。"
+    );
+}
+
+
+function deleteHospitalHistory(id) {
+
+    appData.personalRecords
+        .hospitalHistory =
+        appData.personalRecords
+            .hospitalHistory
+            .filter(
+                item =>
+                    item.id !== id
+            );
+
+    saveAppData();
+
+    renderHospitalHistory();
+}
+
+
+function renderHospitalHistory() {
+
+    const container =
+        document.getElementById(
+            "hospital-history-list"
+        );
+
+    if (!container) {
+        return;
+    }
+
+
+    const list =
+        [...appData.personalRecords.hospitalHistory]
+            .sort(
+                (a, b) =>
+                    String(b.date)
+                        .localeCompare(
+                            String(a.date)
+                        )
+            );
+
+
+    container.innerHTML =
+        list.map(item => `
+            <div class="bg-white rounded-xl border border-slate-100 p-4">
+
+                <div class="flex justify-between gap-3">
+
+                    <div>
+                        <div class="font-bold">
+                            ${escapeHTML(item.hospital)}
+                        </div>
+
+                        <div class="text-sm text-slate-500 mt-1">
+                            ${escapeHTML(item.date)}
+                            ${
+                                item.department
+                                ?
+                                ` / ${escapeHTML(item.department)}`
+                                :
+                                ""
+                            }
+                        </div>
+
+                        ${
+                            item.doctor
+                            ?
+                            `
+                            <div class="text-sm mt-2">
+                                主治医：
+                                ${escapeHTML(item.doctor)}
+                            </div>
+                            `
+                            :
+                            ""
+                        }
+
+                        ${
+                            item.memo
+                            ?
+                            `
+                            <div class="text-sm text-slate-600 mt-2 whitespace-pre-wrap">
+                                ${escapeHTML(item.memo)}
+                            </div>
+                            `
+                            :
+                            ""
+                        }
+
+                    </div>
+
+                    <button
+                        class="icon-btn danger"
+                        onclick="deleteHospitalHistory('${item.id}')"
+                    >
+                        🗑
+                    </button>
+
+                </div>
+
+            </div>
+        `).join("")
+        ||
+        `
+        <p class="text-sm text-slate-400">
+            通院履歴はありません。
+        </p>
+        `;
+}
+
+
+// ============================================================
+// ⑦ 受診記録
+// ============================================================
+
+function saveMedicalRecord() {
+
+    const date =
+        document.getElementById(
+            "medical-record-date"
+        );
+
+    const hospital =
+        document.getElementById(
+            "medical-record-hospital"
+        );
+
+    const department =
+        document.getElementById(
+            "medical-record-department"
+        );
+
+    const symptoms =
+        document.getElementById(
+            "medical-record-symptoms"
+        );
+
+    const diagnosis =
+        document.getElementById(
+            "medical-record-diagnosis"
+        );
+
+    const treatment =
+        document.getElementById(
+            "medical-record-treatment"
+        );
+
+    const memo =
+        document.getElementById(
+            "medical-record-memo"
+        );
+
+
+    appData.personalRecords
+        .medicalRecords
+        .push({
+
+            id:
+                createId("medical"),
+
+            date:
+                date?.value || todayString(),
+
+            hospital:
+                hospital?.value || "",
+
+            department:
+                department?.value || "",
+
+            symptoms:
+                symptoms?.value || "",
+
+            diagnosis:
+                diagnosis?.value || "",
+
+            treatment:
+                treatment?.value || "",
+
+            memo:
+                memo?.value || ""
+        });
+
+
+    saveAppData();
+
+    document
+        .getElementById(
+            "medical-record-form"
+        )
+        ?.reset();
+
+    renderMedicalRecords();
+
+    showMessage(
+        "受診記録を保存しました。"
+    );
+}
+
+
+function renderMedicalRecords() {
+
+    const container =
+        document.getElementById(
+            "medical-record-list"
+        );
+
+    if (!container) {
+        return;
+    }
+
+
+    const records =
+        [...appData.personalRecords.medicalRecords]
+            .sort(
+                (a, b) =>
+                    String(b.date)
+                        .localeCompare(
+                            String(a.date)
+                        )
+            );
+
+
+    container.innerHTML =
+        records.map(item => `
+
+            <div class="bg-white rounded-xl border border-slate-100 p-4">
+
+                <div class="flex justify-between">
+
+                    <div>
+
+                        <div class="font-bold">
+                            ${escapeHTML(
+                                item.date
+                            )}
+                        </div>
+
+                        <div class="text-sm text-slate-500 mt-1">
+                            ${escapeHTML(
+                                item.hospital
+                            )}
+
+                            ${
+                                item.department
+                                ?
+                                ` / ${escapeHTML(item.department)}`
+                                :
+                                ""
+                            }
+                        </div>
+
+                    </div>
+
+                </div>
+
+                ${
+                    item.symptoms
+                    ?
+                    `
+                    <div class="mt-3">
+                        <div class="text-xs text-slate-400">
+                            症状・相談内容
+                        </div>
+                        <div class="text-sm whitespace-pre-wrap mt-1">
+                            ${escapeHTML(item.symptoms)}
+                        </div>
+                    </div>
+                    `
+                    :
+                    ""
+                }
+
+                ${
+                    item.diagnosis
+                    ?
+                    `
+                    <div class="mt-3">
+                        <div class="text-xs text-slate-400">
+                            診断・説明
+                        </div>
+                        <div class="text-sm whitespace-pre-wrap mt-1">
+                            ${escapeHTML(item.diagnosis)}
+                        </div>
+                    </div>
+                    `
+                    :
+                    ""
+                }
+
+                ${
+                    item.treatment
+                    ?
+                    `
+                    <div class="mt-3">
+                        <div class="text-xs text-slate-400">
+                            治療・処置
+                        </div>
+                        <div class="text-sm whitespace-pre-wrap mt-1">
+                            ${escapeHTML(item.treatment)}
+                        </div>
+                    </div>
+                    `
+                    :
+                    ""
+                }
+
+                ${
+                    item.memo
+                    ?
+                    `
+                    <div class="mt-3 bg-slate-50 rounded-lg p-3 text-sm whitespace-pre-wrap">
+                        ${escapeHTML(item.memo)}
+                    </div>
+                    `
+                    :
+                    ""
+                }
+
+            </div>
+
+        `).join("")
+        ||
+        `
+        <p class="text-sm text-slate-400">
+            受診記録はありません。
+        </p>
+        `;
+}
+
+
+// ============================================================
+// ⑧ 服薬記録
+// ============================================================
+
+function populateMedicationSelect() {
+
+    const select =
+        document.getElementById(
+            "dose-medication"
+        )
+        ||
+        document.getElementById(
+            "log-med-select"
+        );
+
+
+    if (!select) {
+        return;
+    }
+
+
+    select.innerHTML = `
+        <option value="">
+            お薬を選択してください
+        </option>
+    `;
+
+
+    appData.medications
+        .forEach(med => {
+
+            const option =
+                document.createElement(
+                    "option"
+                );
+
+            option.value =
+                med.id;
+
+            option.textContent =
+                med.name;
+
+            select.appendChild(
+                option
+            );
+        });
+}
+
+
+function saveDoseLog() {
+
+    const medSelect =
+        document.getElementById(
+            "dose-medication"
+        )
+        ||
+        document.getElementById(
+            "log-med-select"
+        );
+
+    const amount =
+        document.getElementById(
+            "dose-amount"
+        )
+        ||
+        document.getElementById(
+            "log-amount"
+        );
+
+    const datetime =
+        document.getElementById(
+            "dose-datetime"
+        )
+        ||
+        document.getElementById(
+            "log-datetime"
+        );
+
+    const timing =
+        document.getElementById(
+            "dose-timing"
+        )
+        ||
+        document.getElementById(
+            "log-timing"
+        );
+
+    const memo =
+        document.getElementById(
+            "dose-memo"
+        )
+        ||
+        document.getElementById(
+            "log-notes"
+        );
+
+
+    if (!medSelect?.value) {
+
+        alert(
+            "お薬を選択してください。"
+        );
+
+        return;
+    }
+
+
+    const medication =
+        appData.medications.find(
+            med =>
+                med.id ===
+                medSelect.value
+        );
+
+
+    if (!medication) {
+        return;
+    }
+
+
+    const record = {
+
+        id:
+            createId("dose"),
+
+        medicationId:
+            medication.id,
+
+        medicationName:
+            medication.name,
+
+        amount:
+            amount?.value || "",
+
+        datetime:
+            datetime?.value ||
+            nowLocalDateTime(),
+
+        timing:
+            timing?.value || "",
+
+        memo:
+            memo?.value || "",
+
+        createdAt:
+            new Date().toISOString()
+    };
+
+
+    appData.doseLogs.push(
+        record
+    );
+
+
+    // 在庫を減らす
+    const amountNumber =
+        parseFloat(
+            String(
+                amount?.value || ""
+            ).replace(
+                /[^0-9.]/g,
+                ""
+            )
+        );
+
+
+    if (
+        Number.isFinite(amountNumber) &&
+        amountNumber > 0
+    ) {
+
+        medication.stock =
+            Math.max(
+                0,
+                Number(
+                    medication.stock || 0
+                ) - amountNumber
+            );
+    }
+
+
+    saveAppData();
+
+    renderDoseLogs();
+
+    renderMedicationList();
+
+    updateStatistics();
+
+    updateDashboard();
+
+    showMessage(
+        "服薬を記録しました。"
+    );
+}
+
+
+function deleteDoseLog(id) {
+
+    if (
+        !confirm(
+            "この服薬記録を削除しますか？"
+        )
+    ) {
+        return;
+    }
+
+
+    appData.doseLogs =
+        appData.doseLogs.filter(
+            log =>
+                log.id !== id
+        );
+
+
+    saveAppData();
+
+    renderDoseLogs();
+
+    updateStatistics();
+}
+
+
+function renderDoseLogs() {
+
+    const container =
+        document.getElementById(
+            "dose-log-history"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    const logs =
+        [...appData.doseLogs]
+            .sort(
+                (a, b) =>
+                    new Date(b.datetime) -
+                    new Date(a.datetime)
+            );
+
+
+    if (!logs.length) {
+
+        container.innerHTML = `
+            <p class="text-sm text-slate-400">
+                服薬記録はありません。
+            </p>
+        `;
+
+        return;
+    }
+
+
+    container.innerHTML =
+        logs.map(log => `
+
+            <div class="log-entry">
+
+                <div>
+
+                    <div class="font-bold">
+                        ${escapeHTML(
+                            log.medicationName
+                        )}
+                    </div>
+
+                    <div class="text-sm text-slate-500 mt-1">
+                        ${escapeHTML(
+                            formatDateTime(
+                                log.datetime
+                            )
+                        )}
+
+                        ${
+                            log.timing
+                            ?
+                            ` / ${escapeHTML(log.timing)}`
+                            :
+                            ""
+                        }
+                    </div>
+
+                    ${
+                        log.amount
+                        ?
+                        `
+                        <div class="text-sm mt-1">
+                            服用量：
+                            ${escapeHTML(log.amount)}
+                        </div>
+                        `
+                        :
+                        ""
+                    }
+
+                    ${
+                        log.memo
+                        ?
+                        `
+                        <div class="text-sm text-slate-500 mt-1">
+                            ${escapeHTML(log.memo)}
+                        </div>
+                        `
+                        :
+                        ""
+                    }
+
+                </div>
+
+                <button
+                    class="icon-btn danger"
+                    onclick="deleteDoseLog('${log.id}')"
+                >
+                    🗑
+                </button>
+
+            </div>
+
+        `).join("");
+}
+
+
+// ============================================================
+// ⑨ 服薬アラーム
+// ============================================================
+
+function saveMedicationAlarm() {
+
+    const med =
+        document.getElementById(
+            "alarm-medication"
+        );
+
+    const time =
+        document.getElementById(
+            "alarm-time"
+        );
+
+    const timing =
+        document.getElementById(
+            "alarm-timing"
+        );
+
+    const amount =
+        document.getElementById(
+            "alarm-amount"
+        );
+
+
+    if (!med?.value) {
+
+        alert(
+            "お薬を選択してください。"
+        );
+
+        return;
+    }
+
+
+    if (!time?.value) {
+
+        alert(
+            "アラーム時刻を入力してください。"
+        );
+
+        return;
+    }
+
+
+    const medication =
+        appData.medications.find(
+            item =>
+                item.id ===
+                med.value
+        );
+
+
+    if (!medication) {
+        return;
+    }
+
+
+    appData.alarms.push({
+
+        id:
+            createId("alarm"),
+
+        medicationId:
+            medication.id,
+
+        medicationName:
+            medication.name,
+
+        time:
+            time.value,
+
+        timing:
+            timing?.value || "",
+
+        amount:
+            amount?.value || "",
+
+        enabled:
+            true,
+
+        lastTriggered:
+            null
+    });
+
+
+    saveAppData();
+
+    renderMedicationAlarms();
+
+    showMessage(
+        "服薬アラームを登録しました。"
+    );
+}
+
+
+function toggleMedicationAlarm(id) {
+
+    const alarm =
+        appData.alarms.find(
+            item =>
+                item.id === id
+        );
+
+    if (!alarm) {
+        return;
+    }
+
+
+    alarm.enabled =
+        !alarm.enabled;
+
+
+    saveAppData();
+
+    renderMedicationAlarms();
+}
+
+
+function deleteMedicationAlarm(id) {
+
+    appData.alarms =
+        appData.alarms.filter(
+            item =>
+                item.id !== id
+        );
+
+
+    saveAppData();
+
+    renderMedicationAlarms();
+}
+
+
+function renderMedicationAlarms() {
+
+    const container =
+        document.getElementById(
+            "alarm-list"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    container.innerHTML =
+        appData.alarms
+            .map(alarm => `
+
+                <div class="bg-white rounded-xl border border-slate-100 p-4">
+
+                    <div class="flex items-center justify-between gap-3">
+
+                        <div>
+
+                            <div class="font-bold">
+                                ${escapeHTML(
+                                    alarm.medicationName
+                                )}
+                            </div>
+
+                            <div class="text-2xl font-black text-blue-600 mt-1">
+                                ${escapeHTML(
+                                    alarm.time
+                                )}
+                            </div>
+
+                            <div class="text-sm text-slate-500">
+
+                                ${
+                                    alarm.timing
+                                    ?
+                                    escapeHTML(
+                                        alarm.timing
+                                    )
+                                    :
+                                    ""
+                                }
+
+                                ${
+                                    alarm.amount
+                                    ?
+                                    ` / ${escapeHTML(alarm.amount)}`
+                                    :
+                                    ""
+                                }
+
+                            </div>
+
+                        </div>
+
+                        <div class="flex gap-2">
+
+                            <button
+                                class="btn-secondary"
+                                onclick="toggleMedicationAlarm('${alarm.id}')"
+                            >
+                                ${
+                                    alarm.enabled
+                                    ?
+                                    "ON"
+                                    :
+                                    "OFF"
+                                }
+                            </button>
+
+                            <button
+                                class="icon-btn danger"
+                                onclick="deleteMedicationAlarm('${alarm.id}')"
+                            >
+                                🗑
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `).join("")
+        ||
+        `
+        <p class="text-sm text-slate-400">
+            アラームは登録されていません。
+        </p>
+        `;
+}
+
+
+// ============================================================
+// ⑩ 次回通院日
+// ============================================================
+
+function saveAppointment() {
+
+    const datetime =
+        document.getElementById(
+            "appointment-datetime"
+        );
+
+    const hospital =
+        document.getElementById(
+            "appointment-hospital"
+        );
+
+    const department =
+        document.getElementById(
+            "appointment-department"
+        );
+
+    const memo =
+        document.getElementById(
+            "appointment-memo"
+        );
+
+
+    if (!datetime?.value) {
+
+        alert(
+            "通院日時を入力してください。"
+        );
+
+        return;
+    }
+
+
+    appData.appointments.push({
+
+        id:
+            createId("appointment"),
+
+        datetime:
+            datetime.value,
+
+        hospital:
+            hospital?.value || "",
+
+        department:
+            department?.value || "",
+
+        memo:
+            memo?.value || ""
+    });
+
+
+    saveAppData();
+
+    renderAppointments();
+
+    showMessage(
+        "次回通院日を保存しました。"
+    );
+}
+
+
+function deleteAppointment(id) {
+
+    appData.appointments =
+        appData.appointments.filter(
+            item =>
+                item.id !== id
+        );
+
+
+    saveAppData();
+
+    renderAppointments();
+}
+
+
+function renderAppointments() {
+
+    const container =
+        document.getElementById(
+            "appointment-list"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    const list =
+        [...appData.appointments]
+            .sort(
+                (a, b) =>
+                    new Date(a.datetime) -
+                    new Date(b.datetime)
+            );
+
+
+    container.innerHTML =
+        list.map(item => `
+
+            <div class="bg-white rounded-xl border border-slate-100 p-4">
+
+                <div class="flex justify-between">
+
+                    <div>
+
+                        <div class="font-bold text-blue-600">
+                            ${escapeHTML(
+                                formatDateTime(
+                                    item.datetime
+                                )
+                            )}
+                        </div>
+
+                        <div class="font-semibold mt-2">
+                            ${escapeHTML(
+                                item.hospital ||
+                                "医療機関未入力"
+                            )}
+                        </div>
+
+                        ${
+                            item.department
+                            ?
+                            `
+                            <div class="text-sm text-slate-500">
+                                ${escapeHTML(
+                                    item.department
+                                )}
+                            </div>
+                            `
+                            :
+                            ""
+                        }
+
+                        ${
+                            item.memo
+                            ?
+                            `
+                            <div class="mt-3 text-sm whitespace-pre-wrap bg-slate-50 rounded-lg p-3">
+                                ${escapeHTML(item.memo)}
+                            </div>
+                            `
+                            :
+                            ""
+                        }
+
+                    </div>
+
+                    <button
+                        class="icon-btn danger"
+                        onclick="deleteAppointment('${item.id}')"
+                    >
+                        🗑
+                    </button>
+
+                </div>
+
+            </div>
+
+        `).join("")
+        ||
+        `
+        <p class="text-sm text-slate-400">
+            次回通院予定はありません。
+        </p>
+        `;
+}
+
+
+// ============================================================
+// ⑪ 統計
+// ============================================================
+
+function getDoseLogsWithinDays(days) {
+
+    const now =
+        new Date();
+
+    const from =
+        new Date(
+            now.getTime() -
+            days * 86400000
+        );
+
+
+    return appData.doseLogs.filter(
+        log => {
+
+            const date =
+                new Date(
+                    log.datetime
+                );
+
+            return (
+                date >= from &&
+                date <= now
+            );
+        }
+    );
+}
+
+
+function updateStatistics() {
+
+    const periodSelect =
+        document.getElementById(
+            "stats-period"
+        );
+
+
+    const period =
+        periodSelect?.value ||
+        "7";
+
+
+    const days =
+        Number(period);
+
+
+    const logs =
+        getDoseLogsWithinDays(
+            days
+        );
+
+
+    const total =
+        document.getElementById(
+            "stats-total-dose"
+        );
+
+    if (total) {
+        total.textContent =
+            logs.length;
+    }
+
+
+    // --------------------------------
+    // 分類別
+    // --------------------------------
+
+    const categoryMap = {};
+
+    appData.medications.forEach(
+        med => {
+
+            const category =
+                med.category ||
+                "その他";
+
+            categoryMap[category] =
+                (
+                    categoryMap[category] ||
+                    0
+                ) + 1;
+        }
+    );
+
+
+    // --------------------------------
+    // ランキング
+    // --------------------------------
+
+    const ranking = {};
+
+    logs.forEach(log => {
+
+        ranking[
+            log.medicationName
+        ] =
+            (
+                ranking[
+                    log.medicationName
+                ] || 0
+            ) + 1;
+    });
+
+
+    const rankingList =
+        Object.entries(
+            ranking
+        )
+        .sort(
+            (a, b) =>
+                b[1] - a[1]
+        );
+
+
+    const rankingContainer =
+        document.getElementById(
+            "stats-ranking"
+        );
+
+
+    if (rankingContainer) {
+
+        rankingContainer.innerHTML =
+            rankingList
+                .map(
+                    ([name, count], index) => `
+                        <div class="flex items-center justify-between py-2 border-b border-slate-100">
+
+                            <div>
+                                <span class="font-bold mr-2">
+                                    ${index + 1}.
+                                </span>
+
+                                ${escapeHTML(name)}
+                            </div>
+
+                            <strong>
+                                ${count}回
+                            </strong>
+
+                        </div>
+                    `
+                )
+                .join("")
+                ||
+                `
+                <p class="text-sm text-slate-400">
+                    データがありません。
+                </p>
+                `;
+    }
+
+
+    // --------------------------------
+    // 在庫不足
+    // --------------------------------
+
+    const lowStock =
+        appData.medications.filter(
+            med =>
+                Number(
+                    med.stock || 0
+                ) <=
+                Number(
+                    med.alertThreshold ??
+                    med.alert_threshold ??
+                    5
+                )
+        );
+
+
+    const lowStockContainer =
+        document.getElementById(
+            "stats-low-stock"
+        );
+
+
+    if (lowStockContainer) {
+
+        lowStockContainer.innerHTML =
+            lowStock
+                .map(
+                    med => `
+                        <div class="flex items-center justify-between py-2 border-b border-slate-100">
+
+                            <span>
+                                ${escapeHTML(
+                                    med.name
+                                )}
+                            </span>
+
+                            <strong class="text-red-600">
+                                ${escapeHTML(
+                                    med.stock
+                                )}
+                                ${escapeHTML(
+                                    med.unit || "錠"
+                                )}
+                            </strong>
+
+                        </div>
+                    `
+                )
+                .join("")
+                ||
+                `
+                <p class="text-sm text-slate-400">
+                    在庫不足のお薬はありません。
+                </p>
+                `;
+    }
+
+
+    updateCharts();
+}
+
+
+// ============================================================
+// ⑫ Chart.js
+// ============================================================
+
+let healthHeadacheChart = null;
+let bloodPressureChart = null;
+let weightChart = null;
+let doseChart = null;
+let categoryChart = null;
+
+
+function destroyChart(chart) {
+
+    if (chart) {
+        chart.destroy();
+    }
+
+    return null;
+}
+
+
+function updateCharts() {
+
+    if (
+        typeof Chart ===
+        "undefined"
+    ) {
+        return;
+    }
+
+
+    // --------------------------------
+    // 服薬回数
+    // --------------------------------
+
+    const doseCanvas =
+        document.getElementById(
+            "chart-dose"
+        )
+        ||
+        document.getElementById(
+            "chart-adherence"
+        );
+
+
+    if (doseCanvas) {
+
+        const labels = [];
+
+        const values = [];
+
+
+        for (
+            let i = 6;
+            i >= 0;
+            i--
+        ) {
+
+            const d =
+                new Date();
+
+            d.setDate(
+                d.getDate() - i
+            );
+
+
+            const date =
+                d.toISOString()
+                    .slice(0, 10);
+
+
+            labels.push(
+                date.slice(5)
+            );
+
+
+            values.push(
+                appData.doseLogs
+                    .filter(
+                        log =>
+                            String(
+                                log.datetime
+                            ).slice(
+                                0,
+                                10
+                            ) === date
+                    )
+                    .length
+            );
+        }
+
+
+        doseChart =
+            destroyChart(
+                doseChart
+            );
+
+
+        doseChart =
+            new Chart(
+                doseCanvas,
+                {
+                    type: "bar",
+
+                    data: {
+
+                        labels,
+
+                        datasets: [
+                            {
+                                label:
+                                    "服用回数",
+
+                                data:
+                                    values
+                            }
+                        ]
+                    },
+
+                    options: {
+                        responsive: true,
+
+                        maintainAspectRatio:
+                            false
+                    }
+                }
+            );
+    }
+
+
+    // --------------------------------
+    // 分類
+    // --------------------------------
+
+    const categoryCanvas =
+        document.getElementById(
+            "chart-category"
+        );
+
+
+    if (categoryCanvas) {
+
+        const map = {};
+
+
+        appData.medications
+            .forEach(
+                med => {
+
+                    const category =
+                        med.category ||
+                        "その他";
+
+                    map[category] =
+                        (
+                            map[category] ||
+                            0
+                        ) + 1;
+                }
+            );
+
+
+        categoryChart =
+            destroyChart(
+                categoryChart
+            );
+
+
+        categoryChart =
+            new Chart(
+                categoryCanvas,
+                {
+                    type: "doughnut",
+
+                    data: {
+
+                        labels:
+                            Object.keys(map),
+
+                        datasets: [
+                            {
+                                data:
+                                    Object.values(
+                                        map
+                                    )
+                            }
+                        ]
+                    },
+
+                    options: {
+                        responsive: true,
+
+                        maintainAspectRatio:
+                            false
+                    }
+                }
+            );
+    }
+
+
+    updateHealthCharts();
+}
+
+
+function updateHealthCharts() {
+
+    if (
+        typeof Chart ===
+        "undefined"
+    ) {
+        return;
+    }
+
+
+    // --------------------------------
+    // 体重
+    // --------------------------------
+
+    const weightCanvas =
+        document.getElementById(
+            "chart-weight"
+        );
+
+
+    if (weightCanvas) {
+
+        const records =
+            appData.personalRecords
+                .weightHistory
+                .slice()
+                .sort(
+                    (a, b) =>
+                        String(a.date)
+                            .localeCompare(
+                                String(b.date)
+                            )
+                );
+
+
+        weightChart =
+            destroyChart(
+                weightChart
+            );
+
+
+        weightChart =
+            new Chart(
+                weightCanvas,
+                {
+                    type: "line",
+
+                    data: {
+
+                        labels:
+                            records.map(
+                                item =>
+                                    item.date
+                            ),
+
+                        datasets: [
+                            {
+                                label:
+                                    "体重 kg",
+
+                                data:
+                                    records.map(
+                                        item =>
+                                            item.value
+                                    ),
+
+                                tension:
+                                    0.25
+                            }
+                        ]
+                    },
+
+                    options: {
+                        responsive: true,
+
+                        maintainAspectRatio:
+                            false
+                    }
+                }
+            );
+    }
+
+
+    // --------------------------------
+    // 血圧
+    // --------------------------------
+
+    const bpCanvas =
+        document.getElementById(
+            "chart-blood-pressure"
+        );
+
+
+    if (bpCanvas) {
+
+        const records =
+            appData.healthRecords
+                .slice()
+                .sort(
+                    (a, b) =>
+                        new Date(a.datetime) -
+                        new Date(b.datetime)
+                );
+
+
+        bloodPressureChart =
+            destroyChart(
+                bloodPressureChart
+            );
+
+
+        bloodPressureChart =
+            new Chart(
+                bpCanvas,
+                {
+                    type: "line",
+
+                    data: {
+
+                        labels:
+                            records.map(
+                                record =>
+                                    formatDateTime(
+                                        record.datetime
+                                    )
+                            ),
+
+                        datasets: [
+
+                            {
+                                label:
+                                    "収縮期",
+
+                                data:
+                                    records.map(
+                                        record =>
+                                            Number(
+                                                record
+                                                    .bloodPressure
+                                                    ?.systolic
+                                            ) ||
+                                            null
+                                    ),
+
+                                tension:
+                                    0.25
+                            },
+
+                            {
+                                label:
+                                    "拡張期",
+
+                                data:
+                                    records.map(
+                                        record =>
+                                            Number(
+                                                record
+                                                    .bloodPressure
+                                                    ?.diastolic
+                                            ) ||
+                                            null
+                                    ),
+
+                                tension:
+                                    0.25
+                            }
+
+                        ]
+                    },
+
+                    options: {
+                        responsive: true,
+
+                        maintainAspectRatio:
+                            false
+                    }
+                }
+            );
+    }
+
+
+    // --------------------------------
+    // 頭痛
+    // --------------------------------
+
+    const headacheCanvas =
+        document.getElementById(
+            "chart-headache"
+        );
+
+
+    if (headacheCanvas) {
+
+        const records =
+            appData.healthRecords
+                .slice()
+                .sort(
+                    (a, b) =>
+                        new Date(a.datetime) -
+                        new Date(b.datetime)
+                );
+
+
+        healthHeadacheChart =
+            destroyChart(
+                healthHeadacheChart
+            );
+
+
+        healthHeadacheChart =
+            new Chart(
+                headacheCanvas,
+                {
+                    type: "line",
+
+                    data: {
+
+                        labels:
+                            records.map(
+                                record =>
+                                    formatDateTime(
+                                        record.datetime
+                                    )
+                            ),
+
+                        datasets: [
+                            {
+                                label:
+                                    "頭痛",
+
+                                data:
+                                    records.map(
+                                        record =>
+                                            Number(
+                                                record.headache
+                                            ) ||
+                                            null
+                                    ),
+
+                                tension:
+                                    0.25
+                            }
+                        ]
+                    },
+
+                    options: {
+                        responsive: true,
+
+                        maintainAspectRatio:
+                            false,
+
+                        scales: {
+
+                            y: {
+
+                                beginAtZero:
+                                    true,
+
+                                suggestedMax:
+                                    10
+                            }
+                        }
+                    }
+                }
+            );
+    }
+}
+
+
+// ============================================================
+// ⑬ ダッシュボード
+// ============================================================
+
+function updateDashboard() {
+
+    updateHealthDashboard();
+
+    const medCount =
+        document.getElementById(
+            "dashboard-med-count"
+        );
+
+
+    if (medCount) {
+
+        medCount.textContent =
+            appData.medications.length;
+    }
+
+
+    const doseCount =
+        document.getElementById(
+            "dashboard-dose-count"
+        );
+
+
+    if (doseCount) {
+
+        const today =
+            todayString();
+
+        doseCount.textContent =
+            appData.doseLogs.filter(
+                log =>
+                    String(
+                        log.datetime
+                    ).startsWith(
+                        today
+                    )
+            ).length;
+    }
+
+
+    const lowStock =
+        appData.medications.filter(
+            med =>
+                Number(
+                    med.stock || 0
+                ) <=
+                Number(
+                    med.alertThreshold ??
+                    med.alert_threshold ??
+                    5
+                )
+        );
+
+
+    const lowStockElement =
+        document.getElementById(
+            "dashboard-low-stock"
+        );
+
+
+    if (lowStockElement) {
+
+        lowStockElement.textContent =
+            lowStock.length;
+    }
+
+
+    const appointment =
+        [...appData.appointments]
+            .filter(
+                item =>
+                    new Date(
+                        item.datetime
+                    ) >= new Date()
+            )
+            .sort(
+                (a, b) =>
+                    new Date(a.datetime) -
+                    new Date(b.datetime)
+            )[0];
+
+
+    const appointmentElement =
+        document.getElementById(
+            "dashboard-next-appointment"
+        );
+
+
+    if (appointmentElement) {
+
+        appointmentElement.textContent =
+            appointment
+            ?
+            formatDateTime(
+                appointment.datetime
+            )
+            :
+            "予定なし";
+    }
+}
+
+
+function updateHealthDashboard() {
+
+    const latest =
+        appData.healthRecords
+            .slice()
+            .sort(
+                (a, b) =>
+                    new Date(b.datetime) -
+                    new Date(a.datetime)
+            )[0];
+
+
+    const latestMood =
+        document.getElementById(
+            "dashboard-mood"
+        );
+
+
+    if (latestMood) {
+
+        latestMood.textContent =
+            latest?.mood ||
+            "未記録";
+    }
+
+
+    const latestBP =
+        document.getElementById(
+            "dashboard-blood-pressure"
+        );
+
+
+    if (latestBP) {
+
+        const bp =
+            latest?.bloodPressure;
+
+
+        latestBP.textContent =
+            bp?.systolic &&
+            bp?.diastolic
+            ?
+            `${bp.systolic}/${bp.diastolic}`
+            :
+            "未記録";
+    }
+
+
+    const latestWeight =
+        appData.personalRecords
+            .weightHistory
+            .slice()
+            .sort(
+                (a, b) =>
+                    String(b.date)
+                        .localeCompare(
+                            String(a.date)
+                        )
+            )[0];
+
+
+    const weightElement =
+        document.getElementById(
+            "dashboard-weight"
+        );
+
+
+    if (weightElement) {
+
+        weightElement.textContent =
+            latestWeight
+            ?
+            `${latestWeight.value} kg`
+            :
+            "未記録";
+    }
+}
+
+
+// ============================================================
+// ⑭ 通知
+// ============================================================
+
+async function requestNotificationPermission() {
+
+    if (
+        !("Notification" in window)
+    ) {
+
+        alert(
+            "このブラウザは通知に対応していません。"
+        );
+
+        return;
+    }
+
+
+    const permission =
+        await Notification.requestPermission();
+
+
+    if (
+        permission ===
+        "granted"
+    ) {
+
+        showMessage(
+            "通知を許可しました。"
+        );
+
+    } else {
+
+        alert(
+            "通知が許可されませんでした。"
+        );
+    }
+}
+
+
+function sendBrowserNotification(
+    title,
+    body
+) {
+
+    if (
+        !("Notification" in window)
+    ) {
+        return;
+    }
+
+
+    if (
+        Notification.permission !==
+        "granted"
+    ) {
+        return;
+    }
+
+
+    new Notification(
+        title,
+        {
+            body
+        }
+    );
+}
+
+
+// ============================================================
+// ⑮ 体調入力通知
+// ============================================================
+
+function checkHealthReminder() {
+
+    const now =
+        new Date();
+
+    const hour =
+        now.getHours();
+
+    let type = "";
+
+
+    if (
+        hour >= 6 &&
+        hour < 8
+    ) {
+
+        type = "morning";
+    }
+
+    else if (
+        hour >= 12 &&
+        hour < 14
+    ) {
+
+        type = "noon";
+    }
+
+    else if (
+        hour >= 18 &&
+        hour < 20
+    ) {
+
+        type = "evening";
+    }
+
+
+    if (!type) {
+        return;
+    }
+
+
+    const key =
+        `health-reminder-${todayString()}-${type}`;
+
+
+    if (
+        localStorage.getItem(key)
+    ) {
+        return;
+    }
+
+
+    const enabled =
+        type === "morning"
+        ?
+        appData.notificationSettings.healthMorning
+        :
+        type === "noon"
+        ?
+        appData.notificationSettings.healthNoon
+        :
+        appData.notificationSettings.healthEvening;
+
+
+    if (!enabled) {
+        return;
+    }
+
+
+    sendBrowserNotification(
+        "体調記録のお知らせ",
+        "今日の体調を記録しましょう。"
+    );
+
+
+    localStorage.setItem(
+        key,
+        "1"
+    );
+}
+
+
+// ============================================================
+// ⑯ 服薬アラームチェック
+// ============================================================
+
+function checkMedicationAlarms() {
+
+    if (
+        !appData.notificationSettings
+            .medication
+    ) {
+        return;
+    }
+
+
+    const now =
+        new Date();
+
+
+    const hour =
+        String(
+            now.getHours()
+        ).padStart(2, "0");
+
+
+    const minute =
+        String(
+            now.getMinutes()
+        ).padStart(2, "0");
+
+
+    const current =
+        `${hour}:${minute}`;
+
+
+    appData.alarms
+        .filter(
+            alarm =>
+                alarm.enabled &&
+                alarm.time === current
+        )
+        .forEach(
+            alarm => {
+
+                const key =
+                    `alarm-${alarm.id}-${todayString()}-${current}`;
+
+
+                if (
+                    localStorage.getItem(
+                        key
+                    )
+                ) {
+                    return;
+                }
+
+
+                sendBrowserNotification(
+                    "服薬のお知らせ",
+                    `${alarm.medicationName} ${
+                        alarm.amount
+                        ?
+                        `・${alarm.amount}`
+                        :
+                        ""
+                    }`
+                );
+
+
+                localStorage.setItem(
+                    key,
+                    "1"
+                );
+            }
+        );
+}
+
+
+// ============================================================
+// ⑰ 在庫不足通知
+// ============================================================
+
+function checkLowStockNotification() {
+
+    if (
+        !appData.notificationSettings
+            .lowStock
+    ) {
+        return;
+    }
+
+
+    const now =
+        new Date();
+
+    const day =
+        Math.floor(
+            now.getTime() /
+            86400000
+        );
+
+
+    // 2日に1回
+    if (
+        day % 2 !== 0
+    ) {
+        return;
+    }
+
+
+    const key =
+        `low-stock-${todayString()}`;
+
+
+    if (
+        localStorage.getItem(key)
+    ) {
+        return;
+    }
+
+
+    const lowStock =
+        appData.medications.filter(
+            med =>
+                Number(
+                    med.stock || 0
+                ) <=
+                Number(
+                    med.alertThreshold ??
+                    med.alert_threshold ??
+                    5
+                )
+        );
+
+
+    if (!lowStock.length) {
+        return;
+    }
+
+
+    const names =
+        lowStock
+            .map(
+                med =>
+                    `${med.name}（残り${med.stock}${med.unit || "錠"}）`
+            )
+            .join("、");
+
+
+    sendBrowserNotification(
+        "在庫不足のお知らせ",
+        names
+    );
+
+
+    localStorage.setItem(
+        key,
+        "1"
+    );
+}
+
+
+// ============================================================
+// ⑱ 通知監視
+// ============================================================
+
+function startNotificationWatcher() {
+
+    checkHealthReminder();
+
+    checkMedicationAlarms();
+
+    checkLowStockNotification();
+
+
+    setInterval(
+        () => {
+
+            checkHealthReminder();
+
+            checkMedicationAlarms();
+
+            checkLowStockNotification();
+
+        },
+        30000
+    );
+}
+
+
+// ============================================================
+// ⑲ データバックアップ
+// ============================================================
+
+function exportHealthData() {
+
+    const json =
+        JSON.stringify(
+            appData,
+            null,
+            2
+        );
+
+
+    const blob =
+        new Blob(
+            [json],
+            {
+                type:
+                    "application/json"
+            }
+        );
+
+
+    const url =
+        URL.createObjectURL(
+            blob
+        );
+
+
+    const a =
+        document.createElement(
+            "a"
+        );
+
+
+    a.href =
+        url;
+
+    a.download =
+        `health-data-${todayString()}.json`;
+
+    a.click();
+
+
+    URL.revokeObjectURL(
+        url
+    );
+}
+
+
+function importHealthData(
+    event
+) {
+
+    const file =
+        event.target.files?.[0];
+
+
+    if (!file) {
+        return;
+    }
+
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload =
+        function () {
+
+            try {
+
+                const data =
+                    JSON.parse(
+                        reader.result
+                    );
+
+
+                if (
+                    !data ||
+                    typeof data !==
+                    "object"
+                ) {
+                    throw new Error(
+                        "Invalid data"
+                    );
+                }
+
+
+                if (
+                    !confirm(
+                        "現在のデータをバックアップデータで置き換えますか？"
+                    )
+                ) {
+                    return;
+                }
+
+
+                appData =
+                    {
+                        ...appData,
+                        ...data
+                    };
+
+
+                saveAppData();
+
+                location.reload();
+
+            } catch (error) {
+
+                console.error(
+                    error
+                );
+
+                alert(
+                    "バックアップデータを読み込めませんでした。"
+                );
+            }
+        };
+
+
+    reader.readAsText(
+        file
+    );
+}
+
+
+// ============================================================
+// ⑳ 全データ削除
+// ============================================================
+
+function deleteAllHealthData() {
+
+    if (
+        !confirm(
+            "すべての記録を削除します。\n本当に実行しますか？"
+        )
+    ) {
+        return;
+    }
+
+
+    if (
+        !confirm(
+            "この操作は元に戻せません。本当に削除しますか？"
+        )
+    ) {
+        return;
+    }
+
+
+    localStorage.removeItem(
+        STORAGE_KEY
+    );
+
+
+    location.reload();
+}
+
+
+// ============================================================
+// ㉑ ナビゲーション
+// ============================================================
+
+function showView(viewName) {
+
+    document
+        .querySelectorAll(
+            ".view-section"
+        )
+        .forEach(
+            section =>
+                section.classList.add(
+                    "hidden"
+                )
+        );
+
+
+    const target =
+        document.getElementById(
+            `view-${viewName}`
+        );
+
+
+    if (target) {
+
+        target.classList.remove(
+            "hidden"
+        );
+    }
+
+
+    document
+        .querySelectorAll(
+            ".nav-btn"
+        )
+        .forEach(
+            btn =>
+                btn.classList.remove(
+                    "active-nav"
+                )
+        );
+
+
+    document
+        .querySelectorAll(
+            ".nav-btn"
+        )
+        .forEach(
+            btn => {
+
+                if (
+                    btn.dataset.view ===
+                    viewName
+                ) {
+
+                    btn.classList.add(
+                        "active-nav"
+                    );
+                }
+            }
+        );
+
+
+    // 画面切り替え時に更新
+    if (
+        viewName === "dashboard"
+    ) {
+
+        updateDashboard();
+    }
+
+
+    if (
+        viewName === "stats"
+    ) {
+
+        updateStatistics();
+    }
+
+
+    if (
+        viewName === "health"
+    ) {
+
+        renderHealthRecords();
+
+        updateHealthCharts();
+    }
+
+
+    if (
+        viewName === "personal"
+    ) {
+
+        renderPersonalRecords();
+
+        renderHospitalHistory();
+
+        renderMedicalRecords();
+    }
+
+
+    if (
+        viewName === "doselog"
+    ) {
+
+        populateMedicationSelect();
+
+        renderDoseLogs();
+    }
+
+
+    if (
+        viewName === "alarm"
+    ) {
+
+        populateMedicationSelect();
+
+        renderMedicationAlarms();
+    }
+
+
+    if (
+        viewName === "appointment"
+    ) {
+
+        renderAppointments();
+    }
+}
+
+
+// ============================================================
+// ㉒ フォームイベント
+// ============================================================
+
+function setupFormEvents() {
+
+    const forms = {
+
+        "basic-info-form":
+            saveBasicInfo,
+
+        "health-form":
+            saveHealthRecord,
+
+        "hospital-form":
+            saveHospitalHistory,
+
+        "medical-record-form":
+            saveMedicalRecord,
+
+        "dose-log-form":
+            saveDoseLog,
+
+        "medication-alarm-form":
+            saveMedicationAlarm,
+
+        "appointment-form":
+            saveAppointment
+    };
+
+
+    Object.entries(
+        forms
+    ).forEach(
+        ([id, handler]) => {
+
+            const form =
+                document.getElementById(
+                    id
+                );
+
+
+            if (!form) {
+                return;
+            }
+
+
+            form.addEventListener(
+                "submit",
+                event => {
+
+                    event.preventDefault();
+
+                    handler();
+                }
+            );
+        }
+    );
+
+
+    const saveHeight =
+        document.getElementById(
+            "save-height-btn"
+        );
+
+    if (saveHeight) {
+
+        saveHeight.addEventListener(
+            "click",
+            saveHeightRecord
+        );
+    }
+
+
+    const saveWeight =
+        document.getElementById(
+            "save-weight-btn"
+        );
+
+    if (saveWeight) {
+
+        saveWeight.addEventListener(
+            "click",
+            saveWeightRecord
+        );
+    }
+
+
+    const saveAllergyBtn =
+        document.getElementById(
+            "save-allergy-btn"
+        );
+
+    if (saveAllergyBtn) {
+
+        saveAllergyBtn.addEventListener(
+            "click",
+            saveAllergy
+        );
+    }
+
+
+    const saveDiseaseBtn =
+        document.getElementById(
+            "save-disease-btn"
+        );
+
+    if (saveDiseaseBtn) {
+
+        saveDiseaseBtn.addEventListener(
+            "click",
+            saveDisease
+        );
+    }
+
+
+    const notificationBtn =
+        document.getElementById(
+            "enable-notification-btn"
+        )
+        ||
+        document.getElementById(
+            "enable-browser-notif"
+        );
+
+
+    if (notificationBtn) {
+
+        notificationBtn.addEventListener(
+            "click",
+            requestNotificationPermission
+        );
+    }
+
+
+    const exportBtn =
+        document.getElementById(
+            "export-data-btn"
+        );
+
+
+    if (exportBtn) {
+
+        exportBtn.addEventListener(
+            "click",
+            exportHealthData
+        );
+    }
+
+
+    const importInput =
+        document.getElementById(
+            "import-data-input"
+        );
+
+
+    if (importInput) {
+
+        importInput.addEventListener(
+            "change",
+            importHealthData
+        );
+    }
+
+
+    const deleteAllBtn =
+        document.getElementById(
+            "delete-all-data-btn"
+        );
+
+
+    if (deleteAllBtn) {
+
+        deleteAllBtn.addEventListener(
+            "click",
+            deleteAllHealthData
+        );
+    }
+}
+
+
+// ============================================================
+// ㉓ 現在時刻の自動入力
+// ============================================================
+
+function setupDateDefaults() {
+
+    const ids = [
+
+        "health-datetime",
+
+        "dose-datetime",
+
+        "log-datetime",
+
+        "appointment-datetime"
+    ];
+
+
+    ids.forEach(
+        id => {
+
+            const element =
+                document.getElementById(
+                    id
+                );
+
+
+            if (
+                element &&
+                !element.value
+            ) {
+
+                element.value =
+                    nowLocalDateTime();
+            }
+        }
+    );
+
+
+    const todayIds = [
+
+        "hospital-date",
+
+        "medical-record-date"
+    ];
+
+
+    todayIds.forEach(
+        id => {
+
+            const element =
+                document.getElementById(
+                    id
+                );
+
+
+            if (
+                element &&
+                !element.value
+            ) {
+
+                element.value =
+                    todayString();
+            }
+        }
+    );
+}
+
+
+// ============================================================
+// ㉔ アプリ初期化
+// ============================================================
+
+function initializeApp() {
+
+    loadAppData();
+
+    loadBasicInfo();
+
+    setupFormEvents();
+
+    setupDateDefaults();
+
+
+    if (
+        typeof renderMedicationList ===
+        "function"
+    ) {
+
+        renderMedicationList();
+    }
+
+
+    renderHealthRecords();
+
+    renderPersonalRecords();
+
+    renderHospitalHistory();
+
+    renderMedicalRecords();
+
+    populateMedicationSelect();
+
+    renderDoseLogs();
+
+    renderMedicationAlarms();
+
+    renderAppointments();
+
+    updateDashboard();
+
+    updateStatistics();
+
+    updateCharts();
+
+
+    startNotificationWatcher();
+
+
+    // 最初の画面
+    showView(
+        "dashboard"
+    );
+
+
+    console.log(
+        "健康管理アプリを初期化しました。"
+    );
+}
+
+
+// ============================================================
+// ㉕ DOM読み込み完了
+// ============================================================
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeApp
+);

@@ -1,0 +1,119 @@
+/* --- グローバル設定・変数定義 --- */
+:root {
+  --primary-color: #2563eb;       /* メインのブルー */
+  --primary-hover: #1d4ed8;       /* ホバー時の濃いブルー */
+  --bg-color: #f8fafc;            /* 全体背景（薄いグレー） */
+  --card-bg: #ffffff;            /* コンテンツ背景（白） */
+  --text-main: #0f172a;           /* メイン文字色 */
+  --text-muted: #64748b;          /* サブ文字色 */
+  --border-color: #e2e8f0;        /* 枠線色 */
+  --radius: 8px;                  /* 角丸 */
+  --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-main);
+  line-height: 1.6;
+}
+
+/* --- コンテナ・レイアウト --- */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* グリッドレイアウト（レスポンシブ対応） */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+/* --- カードコンポーネント --- */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.card-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-main);
+  margin-bottom: 8px;
+}
+
+.card-desc {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+/* --- ボタン --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: var(--radius);
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+/* --- フォーム・入力要素 --- */
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 6px;
+  color: var(--text-main);
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 0.875rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background-color: #ffffff;
+  outline: none;
+}
+
+.form-control:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}

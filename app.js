@@ -6424,3 +6424,1427 @@ function getCurrentDateTimeLocal() {
 // ============================================================
 // ここまで app.js 前半
 // ============================================================
+// ==================================================
+// 服薬記録・健康記録・各種画面 後半
+// ==================================================
+
+// --------------------------------------------------
+// 共通：現在ユーザー確認
+// --------------------------------------------------
+
+async function requireUser() {
+    if (!currentUser) {
+        const {
+            data: { user }
+        } = await supabase.auth.getUser();
+
+        if (user) {
+            currentUser = user;
+            return user;
+        }
+
+        showToast("ログインしてください。", "error");
+        return null;
+    }
+
+    return currentUser;
+}
+
+
+// --------------------------------------------------
+// 服薬記録
+// --------------------------------------------------
+
+async function loadMedicationLogs() {
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const list = document.getElementById("medication-logs-list");
+    if (!list) return;
+
+    try {
+
+        const { data, error } = await supabase
+            .from("medication_logs")
+            .select(`
+                *,
+                medications (
+                    id,
+                    name,
+                    dosage,
+                    unit
+                )
+            `)
+            .eq("user_id", user.id)
+            .order("taken_at", { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="empty-state">
+                    <i class="fa-solid fa-check-double"></i>
+                    <p>服薬記録はありません</p>
+                </div>
+            `;
+
+            updateDashboardTakenCount([]);
+            return;
+        }
+
+        list.innerHTML = data.map(log => {
+
+            const medicationName =
+                log.medications?.name || "お薬";
+
+            const dosage =
+                log.medications?.dosage
+                    ? `${log.medications.dosage}${log.medications.unit || ""}`
+                    : "";
+
+            const date =
+                log.taken_at
+                    ? formatDateTime(log.taken_at)
+                    : "-";
+
+            return `
+                <div class="flex items-center justify-between gap-4 py-4">
+                    <div class="flex items-center gap-3 min-w-0">
+
+                        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+
+                        <div class="min-w-0">
+                            <div class="font-bold text-slate-800 truncate">
+                                ${escapeHtml(medicationName)}
+                            </div>
+
+                            <div class="text-xs text-slate-400">
+                                ${escapeHtml(dosage)}
+                            </div>
+
+                            <div class="text-xs text-slate-400 mt-1">
+                                ${escapeHtml(date)}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <button
+                        class="text-red-400 hover:text-red-600"
+                        onclick="deleteMedicationLog('${log.id}')"
+                        title="削除"
+                    >
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            `;
+
+        }).join("");
+
+        updateDashboardTakenCount(data);
+
+    } catch (error) {
+
+        console.error("服薬記録取得エラー:", error);
+
+        list.innerHTML = `
+            <div class="empty-state">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <p>服薬記録の取得に失敗しました</p>
+            </div>
+        `;
+    }
+}
+
+
+// --------------------------------------------------
+// 服薬記録追加
+// --------------------------------------------------
+
+async function saveMedicationLog(event) {
+
+    if (event) event.preventDefault();
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const medicationId =
+        document.getElementById("log-medication-id")?.value;
+
+    const takenAt =
+        document.getElementById("log-taken-at")?.value;
+
+    const note =
+        document.getElementById("log-note")?.value || "";
+
+    if (!medicationId) {
+        showToast("お薬を選択してください。", "error");
+        return;
+    }
+
+    try {
+
+        showGlobalLoading(true);
+
+        const { error } = await supabase
+            .from("medication_logs")
+            .insert({
+                user_id: user.id,
+                medication_id: medicationId,
+                taken_at: takenAt
+                    ? new Date(takenAt).toISOString()
+                    : new Date().toISOString(),
+                note
+            });
+
+        if (error) throw error;
+
+        closeModal();
+        showToast("服薬を記録しました。", "success");
+
+        await loadMedicationLogs();
+        await loadDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+        showToast("服薬記録の保存に失敗しました。", "error");
+
+    } finally {
+
+        showGlobalLoading(false);
+    }
+}
+
+
+// --------------------------------------------------
+// 服薬記録削除
+// --------------------------------------------------
+
+async function deleteMedicationLog(id) {
+
+    if (!confirm("この服薬記録を削除しますか？")) return;
+
+    try {
+
+        const { error } = await supabase
+            .from("medication_logs")
+            .delete()
+            .eq("id", id);
+
+        if (error) throw error;
+
+        showToast("服薬記録を削除しました。", "success");
+
+        await loadMedicationLogs();
+        await loadDashboard();
+
+    } catch (error) {
+
+        console.error(error);
+        showToast("削除に失敗しました。", "error");
+    }
+}
+
+
+// --------------------------------------------------
+// 服薬記録モーダル
+// --------------------------------------------------
+
+async function openMedicationLogModal() {
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const { data: medications, error } = await supabase
+        .from("medications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name");
+
+    if (error) {
+
+        console.error(error);
+        showToast("お薬を取得できませんでした。", "error");
+        return;
+    }
+
+    const options = (medications || []).map(m => `
+        <option value="${m.id}">
+            ${escapeHtml(m.name)}
+        </option>
+    `).join("");
+
+    openModal(`
+        <div class="p-6">
+
+            <div class="mb-6">
+                <h3 class="text-xl font-extrabold text-slate-900">
+                    服薬を記録
+                </h3>
+
+                <p class="mt-1 text-sm text-slate-400">
+                    飲んだお薬を記録します。
+                </p>
+            </div>
+
+            <form onsubmit="saveMedicationLog(event)">
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        お薬
+                    </label>
+
+                    <select
+                        id="log-medication-id"
+                        class="input-field"
+                        required
+                    >
+                        <option value="">
+                            お薬を選択してください
+                        </option>
+
+                        ${options}
+                    </select>
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        服薬日時
+                    </label>
+
+                    <input
+                        id="log-taken-at"
+                        type="datetime-local"
+                        class="input-field"
+                        value="${getDateTimeLocalValue()}"
+                        required
+                    >
+
+                </div>
+
+                <div class="mb-5">
+
+                    <label class="form-label">
+                        メモ
+                    </label>
+
+                    <textarea
+                        id="log-note"
+                        class="input-field"
+                        placeholder="体調などのメモ"
+                    ></textarea>
+
+                </div>
+
+                <div class="flex justify-end gap-2">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        onclick="closeModal()"
+                    >
+                        キャンセル
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        <i class="fa-solid fa-check"></i>
+                        記録する
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    `);
+}
+
+
+// --------------------------------------------------
+// 健康記録
+// --------------------------------------------------
+
+async function loadHealthRecords() {
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const list =
+        document.getElementById("health-records-list");
+
+    if (!list) return;
+
+    try {
+
+        const { data, error } = await supabase
+            .from("health_records")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("record_date", { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="content-card">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-heart-pulse"></i>
+                        <p>健康記録はありません</p>
+                    </div>
+                </div>
+            `;
+
+            return;
+        }
+
+        list.innerHTML = data.map(record => `
+
+            <div class="content-card">
+
+                <div class="flex items-start justify-between gap-3">
+
+                    <div>
+
+                        <div class="text-xs text-slate-400">
+                            ${escapeHtml(record.record_date || "-")}
+                        </div>
+
+                        <h3 class="mt-1 font-extrabold text-slate-900">
+                            健康記録
+                        </h3>
+
+                    </div>
+
+                    <button
+                        class="text-red-400 hover:text-red-600"
+                        onclick="deleteHealthRecord('${record.id}')"
+                    >
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+
+                </div>
+
+                <div class="mt-4 grid grid-cols-2 gap-3">
+
+                    <div class="rounded-xl bg-slate-50 p-3">
+                        <div class="text-xs text-slate-400">
+                            体調
+                        </div>
+                        <div class="mt-1 font-bold">
+                            ${escapeHtml(record.condition || "-")}
+                        </div>
+                    </div>
+
+                    <div class="rounded-xl bg-slate-50 p-3">
+                        <div class="text-xs text-slate-400">
+                            気分
+                        </div>
+                        <div class="mt-1 font-bold">
+                            ${escapeHtml(record.mood || "-")}
+                        </div>
+                    </div>
+
+                </div>
+
+                ${
+                    record.notes
+                    ? `
+                        <div class="mt-4 text-sm text-slate-600 whitespace-pre-wrap">
+                            ${escapeHtml(record.notes)}
+                        </div>
+                    `
+                    : ""
+                }
+
+            </div>
+
+        `).join("");
+
+    } catch (error) {
+
+        console.error("健康記録取得エラー:", error);
+
+        list.innerHTML = `
+            <div class="content-card">
+                <div class="empty-state">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <p>健康記録を取得できませんでした</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+
+// --------------------------------------------------
+// 健康記録保存
+// --------------------------------------------------
+
+async function saveHealthRecord(event) {
+
+    if (event) event.preventDefault();
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const recordDate =
+        document.getElementById("health-record-date")?.value ||
+        new Date().toISOString().slice(0, 10);
+
+    const condition =
+        document.getElementById("health-condition")?.value || "";
+
+    const mood =
+        document.getElementById("health-mood")?.value || "";
+
+    const notes =
+        document.getElementById("health-notes")?.value || "";
+
+    try {
+
+        showGlobalLoading(true);
+
+        const { error } = await supabase
+            .from("health_records")
+            .insert({
+                user_id: user.id,
+                record_date: recordDate,
+                condition,
+                mood,
+                notes
+            });
+
+        if (error) throw error;
+
+        closeModal();
+
+        showToast("健康記録を保存しました。", "success");
+
+        await loadHealthRecords();
+
+    } catch (error) {
+
+        console.error(error);
+        showToast("健康記録の保存に失敗しました。", "error");
+
+    } finally {
+
+        showGlobalLoading(false);
+    }
+}
+
+
+// --------------------------------------------------
+// 健康記録削除
+// --------------------------------------------------
+
+async function deleteHealthRecord(id) {
+
+    if (!confirm("この健康記録を削除しますか？")) return;
+
+    try {
+
+        const { error } = await supabase
+            .from("health_records")
+            .delete()
+            .eq("id", id);
+
+        if (error) throw error;
+
+        showToast("削除しました。", "success");
+
+        await loadHealthRecords();
+
+    } catch (error) {
+
+        console.error(error);
+        showToast("削除に失敗しました。", "error");
+    }
+}
+
+
+// --------------------------------------------------
+// 健康記録モーダル
+// --------------------------------------------------
+
+function openHealthRecordModal() {
+
+    openModal(`
+        <div class="p-6">
+
+            <div class="mb-6">
+
+                <h3 class="text-xl font-extrabold text-slate-900">
+                    健康記録
+                </h3>
+
+                <p class="mt-1 text-sm text-slate-400">
+                    今日の体調を記録します。
+                </p>
+
+            </div>
+
+            <form onsubmit="saveHealthRecord(event)">
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        日付
+                    </label>
+
+                    <input
+                        id="health-record-date"
+                        type="date"
+                        class="input-field"
+                        value="${getTodayDate()}"
+                        required
+                    >
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        体調
+                    </label>
+
+                    <select
+                        id="health-condition"
+                        class="input-field"
+                    >
+                        <option value="">選択してください</option>
+                        <option value="とても良い">とても良い</option>
+                        <option value="良い">良い</option>
+                        <option value="普通">普通</option>
+                        <option value="少し悪い">少し悪い</option>
+                        <option value="悪い">悪い</option>
+                    </select>
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        気分
+                    </label>
+
+                    <select
+                        id="health-mood"
+                        class="input-field"
+                    >
+                        <option value="">選択してください</option>
+                        <option value="とても良い">とても良い</option>
+                        <option value="良い">良い</option>
+                        <option value="普通">普通</option>
+                        <option value="少し悪い">少し悪い</option>
+                        <option value="悪い">悪い</option>
+                    </select>
+
+                </div>
+
+                <div class="mb-5">
+
+                    <label class="form-label">
+                        メモ
+                    </label>
+
+                    <textarea
+                        id="health-notes"
+                        class="input-field"
+                        placeholder="今日の体調について"
+                    ></textarea>
+
+                </div>
+
+                <div class="flex justify-end gap-2">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        onclick="closeModal()"
+                    >
+                        キャンセル
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        保存
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    `);
+}
+
+
+// --------------------------------------------------
+// 診断・病歴
+// --------------------------------------------------
+
+async function loadDiagnoses() {
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const list =
+        document.getElementById("diagnoses-list");
+
+    if (!list) return;
+
+    try {
+
+        const { data, error } = await supabase
+            .from("diagnoses")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("diagnosed_date", { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="content-card md:col-span-2">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-stethoscope"></i>
+                        <p>診断・病歴はありません</p>
+                    </div>
+                </div>
+            `;
+
+            return;
+        }
+
+        list.innerHTML = data.map(item => `
+
+            <div class="content-card">
+
+                <div class="flex justify-between">
+
+                    <div>
+                        <div class="text-xs text-slate-400">
+                            ${escapeHtml(item.diagnosed_date || "-")}
+                        </div>
+
+                        <h3 class="mt-1 text-lg font-extrabold text-slate-900">
+                            ${escapeHtml(item.name || "病名未設定")}
+                        </h3>
+                    </div>
+
+                    <button
+                        class="text-red-400 hover:text-red-600"
+                        onclick="deleteDiagnosis('${item.id}')"
+                    >
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+
+                </div>
+
+                ${
+                    item.notes
+                    ? `
+                        <p class="mt-4 text-sm text-slate-600 whitespace-pre-wrap">
+                            ${escapeHtml(item.notes)}
+                        </p>
+                    `
+                    : ""
+                }
+
+            </div>
+
+        `).join("");
+
+    } catch (error) {
+
+        console.error(error);
+
+        list.innerHTML = `
+            <div class="content-card md:col-span-2">
+                <div class="empty-state">
+                    <p>診断情報を取得できませんでした</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+
+async function saveDiagnosis(event) {
+
+    if (event) event.preventDefault();
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const name =
+        document.getElementById("diagnosis-name")?.value?.trim();
+
+    const date =
+        document.getElementById("diagnosis-date")?.value || null;
+
+    const notes =
+        document.getElementById("diagnosis-notes")?.value || "";
+
+    if (!name) {
+        showToast("病名を入力してください。", "error");
+        return;
+    }
+
+    try {
+
+        const { error } = await supabase
+            .from("diagnoses")
+            .insert({
+                user_id: user.id,
+                name,
+                diagnosed_date: date,
+                notes
+            });
+
+        if (error) throw error;
+
+        closeModal();
+        showToast("診断を追加しました。", "success");
+
+        await loadDiagnoses();
+
+    } catch (error) {
+
+        console.error(error);
+        showToast("診断の保存に失敗しました。", "error");
+    }
+}
+
+
+async function deleteDiagnosis(id) {
+
+    if (!confirm("この診断を削除しますか？")) return;
+
+    const { error } = await supabase
+        .from("diagnoses")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+
+        console.error(error);
+        showToast("削除に失敗しました。", "error");
+        return;
+    }
+
+    showToast("削除しました。", "success");
+
+    await loadDiagnoses();
+}
+
+
+function openDiagnosisModal() {
+
+    openModal(`
+        <div class="p-6">
+
+            <h3 class="mb-6 text-xl font-extrabold">
+                診断・病歴を追加
+            </h3>
+
+            <form onsubmit="saveDiagnosis(event)">
+
+                <div class="mb-4">
+                    <label class="form-label">
+                        病名・診断名
+                    </label>
+
+                    <input
+                        id="diagnosis-name"
+                        class="input-field"
+                        placeholder="例：高血圧"
+                        required
+                    >
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">
+                        診断日
+                    </label>
+
+                    <input
+                        id="diagnosis-date"
+                        type="date"
+                        class="input-field"
+                    >
+                </div>
+
+                <div class="mb-5">
+                    <label class="form-label">
+                        メモ
+                    </label>
+
+                    <textarea
+                        id="diagnosis-notes"
+                        class="input-field"
+                        placeholder="診断についてのメモ"
+                    ></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        onclick="closeModal()"
+                    >
+                        キャンセル
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        保存
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    `);
+}
+
+
+// --------------------------------------------------
+// アレルギー
+// --------------------------------------------------
+
+async function loadAllergies() {
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const list =
+        document.getElementById("allergies-list");
+
+    if (!list) return;
+
+    try {
+
+        const { data, error } = await supabase
+            .from("allergies")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        if (!data || data.length === 0) {
+
+            list.innerHTML = `
+                <div class="content-card md:col-span-2">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <p>アレルギー情報はありません</p>
+                    </div>
+                </div>
+            `;
+
+            return;
+        }
+
+        list.innerHTML = data.map(item => `
+
+            <div class="content-card">
+
+                <div class="flex items-center justify-between">
+
+                    <div class="flex items-center gap-3">
+
+                        <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-red-50 text-red-500">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+
+                        <div>
+
+                            <div class="font-extrabold text-slate-900">
+                                ${escapeHtml(item.name || "未設定")}
+                            </div>
+
+                            <div class="text-xs text-slate-400">
+                                ${escapeHtml(item.type || "")}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                    <button
+                        class="text-red-400"
+                        onclick="deleteAllergy('${item.id}')"
+                    >
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+
+                </div>
+
+                ${
+                    item.notes
+                    ? `
+                        <p class="mt-4 text-sm text-slate-600">
+                            ${escapeHtml(item.notes)}
+                        </p>
+                    `
+                    : ""
+                }
+
+            </div>
+
+        `).join("");
+
+    } catch (error) {
+
+        console.error(error);
+
+        list.innerHTML = `
+            <div class="content-card md:col-span-2">
+                <div class="empty-state">
+                    <p>アレルギー情報を取得できませんでした</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+
+async function saveAllergy(event) {
+
+    if (event) event.preventDefault();
+
+    const user = await requireUser();
+    if (!user) return;
+
+    const name =
+        document.getElementById("allergy-name")?.value?.trim();
+
+    const type =
+        document.getElementById("allergy-type")?.value || "";
+
+    const notes =
+        document.getElementById("allergy-notes")?.value || "";
+
+    if (!name) {
+        showToast("アレルギー名を入力してください。", "error");
+        return;
+    }
+
+    try {
+
+        const { error } = await supabase
+            .from("allergies")
+            .insert({
+                user_id: user.id,
+                name,
+                type,
+                notes
+            });
+
+        if (error) throw error;
+
+        closeModal();
+
+        showToast("アレルギー情報を追加しました。", "success");
+
+        await loadAllergies();
+
+    } catch (error) {
+
+        console.error(error);
+        showToast("保存に失敗しました。", "error");
+    }
+}
+
+
+async function deleteAllergy(id) {
+
+    if (!confirm("このアレルギー情報を削除しますか？")) return;
+
+    const { error } = await supabase
+        .from("allergies")
+        .delete()
+        .eq("id", id);
+
+    if (error) {
+
+        console.error(error);
+        showToast("削除に失敗しました。", "error");
+        return;
+    }
+
+    showToast("削除しました。", "success");
+
+    await loadAllergies();
+}
+
+
+function openAllergyModal() {
+
+    openModal(`
+        <div class="p-6">
+
+            <h3 class="mb-6 text-xl font-extrabold">
+                アレルギーを追加
+            </h3>
+
+            <form onsubmit="saveAllergy(event)">
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        アレルギー
+                    </label>
+
+                    <input
+                        id="allergy-name"
+                        class="input-field"
+                        placeholder="例：ペニシリン"
+                        required
+                    >
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        種類
+                    </label>
+
+                    <select
+                        id="allergy-type"
+                        class="input-field"
+                    >
+                        <option value="">未設定</option>
+                        <option value="薬剤">薬剤</option>
+                        <option value="食物">食物</option>
+                        <option value="その他">その他</option>
+                    </select>
+
+                </div>
+
+                <div class="mb-5">
+
+                    <label class="form-label">
+                        メモ
+                    </label>
+
+                    <textarea
+                        id="allergy-notes"
+                        class="input-field"
+                    ></textarea>
+
+                </div>
+
+                <div class="flex justify-end gap-2">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        onclick="closeModal()"
+                    >
+                        キャンセル
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        保存
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+    `);
+}
+
+
+// --------------------------------------------------
+// 共通ユーティリティ
+// --------------------------------------------------
+
+function getTodayDate() {
+
+    const now = new Date();
+
+    const year =
+        now.getFullYear();
+
+    const month =
+        String(now.getMonth() + 1).padStart(2, "0");
+
+    const day =
+        String(now.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+}
+
+
+function getDateTimeLocalValue() {
+
+    const now = new Date();
+
+    const offset =
+        now.getTimezoneOffset();
+
+    const local =
+        new Date(now.getTime() - offset * 60000);
+
+    return local
+        .toISOString()
+        .slice(0, 16);
+}
+
+
+function formatDateTime(value) {
+
+    if (!value) return "-";
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return String(value);
+    }
+
+    return date.toLocaleString(
+        "ja-JP",
+        {
+            year: "numeric",
+            month: "numeric",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
+}
+
+
+function escapeHtml(value) {
+
+    if (value === null || value === undefined) {
+        return "";
+    }
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+// --------------------------------------------------
+// ダッシュボード服薬数
+// --------------------------------------------------
+
+function updateDashboardTakenCount(logs) {
+
+    const element =
+        document.getElementById("dashboard-taken-count");
+
+    if (!element) return;
+
+    const today =
+        getTodayDate();
+
+    const count =
+        (logs || []).filter(log => {
+
+            if (!log.taken_at) return false;
+
+            return new Date(log.taken_at)
+                .toISOString()
+                .slice(0, 10) === today;
+
+        }).length;
+
+    element.textContent = count;
+}
+
+
+// --------------------------------------------------
+// モーダル
+// --------------------------------------------------
+
+function openModal(content) {
+
+    const overlay =
+        document.getElementById("modal-overlay");
+
+    const container =
+        document.getElementById("modal-content");
+
+    if (!overlay || !container) return;
+
+    container.innerHTML = content;
+
+    overlay.classList.remove("hidden");
+    overlay.classList.add("flex");
+
+    document.body.classList.add("overflow-hidden");
+}
+
+
+function closeModal() {
+
+    const overlay =
+        document.getElementById("modal-overlay");
+
+    const container =
+        document.getElementById("modal-content");
+
+    if (!overlay) return;
+
+    overlay.classList.add("hidden");
+    overlay.classList.remove("flex");
+
+    if (container) {
+        container.innerHTML = "";
+    }
+
+    document.body.classList.remove("overflow-hidden");
+}
+
+
+function closeModalOnOverlay(event) {
+
+    if (event.target === event.currentTarget) {
+        closeModal();
+    }
+}
+
+
+// --------------------------------------------------
+// Toast
+// --------------------------------------------------
+
+function showToast(message, type = "info") {
+
+    const container =
+        document.getElementById("toast-container");
+
+    if (!container) return;
+
+    const icon =
+        type === "success"
+            ? "fa-circle-check"
+            : type === "error"
+                ? "fa-circle-exclamation"
+                : "fa-circle-info";
+
+    const toast =
+        document.createElement("div");
+
+    toast.className =
+        "rounded-2xl bg-white px-4 py-3 shadow-xl border border-slate-200 flex items-center gap-3 text-sm font-semibold text-slate-700";
+
+    toast.innerHTML = `
+        <i class="fa-solid ${icon}"></i>
+        <span>${escapeHtml(message)}</span>
+    `;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(10px)";
+        toast.style.transition = "all .2s ease";
+
+        setTimeout(() => {
+            toast.remove();
+        }, 200);
+
+    }, 3000);
+}
+
+
+// --------------------------------------------------
+// Global Loading
+// --------------------------------------------------
+
+function showGlobalLoading(show) {
+
+    const loading =
+        document.getElementById("global-loading");
+
+    if (!loading) return;
+
+    if (show) {
+
+        loading.classList.remove("hidden");
+        loading.classList.add("flex");
+
+    } else {
+
+        loading.classList.add("hidden");
+        loading.classList.remove("flex");
+    }
+}
+
+
+// --------------------------------------------------
+// モバイルメニュー
+// --------------------------------------------------
+
+function toggleMobileMenu() {
+
+    const sidebar =
+        document.getElementById("sidebar");
+
+    const overlay =
+        document.getElementById("mobile-overlay") ||
+        document.getElementById("sidebar-overlay");
+
+    if (!sidebar) return;
+
+    sidebar.classList.toggle("mobile-open");
+
+    if (overlay) {
+        overlay.classList.toggle("hidden");
+    }
+}
+
+
+// --------------------------------------------------
+// ESCでモーダルを閉じる
+// --------------------------------------------------
+
+document.addEventListener("keydown", event => {
+
+    if (event.key === "Escape") {
+        closeModal();
+    }
+
+});
+
+
+// ==================================================
+// 後半ここまで
+// ==================================================

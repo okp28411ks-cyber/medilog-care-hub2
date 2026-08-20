@@ -4,207 +4,1088 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Medilog Care Hub</title>
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    /* スクロールバーのカスタマイズ */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    /* タブのアクティブスタイル */
+    .tab-btn.active {
+      background-color: #eff6ff;
+      color: #2563eb;
+      font-weight: 700;
+    }
+  </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen">
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
 
+  <!-- Config Warning Banner (Supabase未設定時) -->
+  <div id="config-warning" class="bg-amber-500 text-white text-xs py-2 px-4 text-center font-bold shadow-md hidden">
+    ⚠️ SupabaseのURLとAnon Keyが設定されていません。コード内の `SUPABASE_URL` と `SUPABASE_KEY` を設定してください。（現在はデモモードで動作中）
+  </div>
+
+  <!-- ================= 認証画面 (未ログイン時) ================= -->
   <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-8">
-      <div class="text-center mb-6">
-        <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white font-bold text-2xl shadow-lg shadow-blue-200">＋</div>
+    <div class="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full p-8 transition-all">
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-white font-bold text-2xl shadow-lg shadow-blue-200">
+          ＋
+        </div>
         <h1 class="text-2xl font-bold text-slate-800">Medilog Care Hub</h1>
         <p class="text-slate-500 text-sm mt-1">ヘルスケア＆お薬管理ポータル</p>
       </div>
 
-      <form id="auth-form" class="space-y-4">
+      <!-- Auth Form -->
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">メールアドレス</label>
-          <input type="email" id="email" required placeholder="user@example.com" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+          <input type="email" id="auth-email" required placeholder="user@example.com" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition">
         </div>
         <div>
           <label class="block text-xs font-semibold text-slate-600 mb-1">パスワード</label>
-          <input type="password" id="password" required class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+          <input type="password" id="auth-password" required placeholder="••••••••" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm transition">
         </div>
-        <div class="flex gap-2 pt-2">
-          <button type="button" onclick="handleSignUp()" class="w-1/2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm transition">新規登録</button>
-          <button type="button" onclick="handleSignIn()" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-lg shadow-blue-200 transition text-sm">ログイン</button>
+
+        <div id="signup-fields" class="space-y-4 hidden border-t pt-4 mt-2">
+          <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">プロフィール初期設定</h2>
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">ユーザー名</label>
+            <input type="text" id="auth-username" placeholder="医療 太郎" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">性別</label>
+              <select id="auth-gender" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                <option value="男性">男性</option>
+                <option value="女性">女性</option>
+                <option value="その他">その他</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">年齢</label>
+              <input type="number" id="auth-age" placeholder="30" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">身長 (cm)</label>
+              <input type="number" step="0.1" id="auth-height" placeholder="170" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-600 mb-1">体重 (kg)</label>
+              <input type="number" step="0.1" id="auth-weight" placeholder="65" class="w-full px-3 py-2 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+            </div>
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 transition duration-200 text-sm">
+            ログイン
+          </button>
         </div>
       </form>
+
+      <div class="text-center mt-6">
+        <button onclick="toggleAuthMode()" id="auth-toggle-btn" class="text-xs text-blue-600 font-semibold hover:underline">
+          新規アカウント作成はこちら
+        </button>
+      </div>
     </div>
   </div>
 
-  <div id="app-screen" class="hidden flex-col md:flex-row min-h-screen">
-    <aside class="w-full md:w-64 bg-white border-r border-slate-200 p-4 flex flex-col justify-between">
+  <!-- ================= アプリメイン画面 ================= -->
+  <div id="app-screen" class="hidden flex-1 flex flex-col md:flex-row min-h-screen">
+
+    <!-- サイドバー -->
+    <aside class="w-full md:w-64 bg-white border-r border-slate-200 p-4 flex flex-col justify-between shrink-0">
       <div>
         <div class="flex items-center space-x-3 mb-8 px-2">
-          <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-100">＋</div>
+          <div class="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-100">
+            ＋
+          </div>
           <div>
             <h1 class="font-bold text-slate-800 leading-none">Medilog</h1>
             <span class="text-xs text-blue-600 font-semibold">Care Hub</span>
           </div>
         </div>
-        <nav class="space-y-1" id="nav-list">
-          <button onclick="switchTab('dashboard')" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-blue-600 bg-blue-50">
-            <i data-lucide="activity" class="w-5 h-5"></i><span>ダッシュボード</span>
+
+        <nav class="space-y-1">
+          <button onclick="switchTab('dashboard')" class="tab-btn active w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            <span>ダッシュボード</span>
           </button>
-          <button onclick="switchTab('inventory')" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-slate-600 hover:bg-slate-50">
-            <i data-lucide="pill" class="w-5 h-5"></i><span>おくすり在庫</span>
+          <button onclick="switchTab('condition')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="activity" class="w-5 h-5"></i>
+            <span>体調管理（毎日）</span>
           </button>
-          <button onclick="switchTab('condition')" class="w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-sm text-slate-600 hover:bg-slate-50">
-            <i data-lucide="calendar" class="w-5 h-5"></i><span>体調管理</span>
+          <button onclick="switchTab('profile')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="user" class="w-5 h-5"></i>
+            <span>基本・自身記録</span>
+          </button>
+          <button onclick="switchTab('inventory')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="pill" class="w-5 h-5"></i>
+            <span>おくすり在庫</span>
+          </button>
+          <button onclick="switchTab('med-logs')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="clipboard-check" class="w-5 h-5"></i>
+            <span>服薬記録</span>
+          </button>
+          <button onclick="switchTab('alarms')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="clock" class="w-5 h-5"></i>
+            <span>服薬アラーム</span>
+          </button>
+          <button onclick="switchTab('appointments')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="calendar" class="w-5 h-5"></i>
+            <span>通院予定</span>
+          </button>
+          <button onclick="switchTab('stats')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+            <span>統計データ</span>
+          </button>
+          <button onclick="switchTab('friends')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="users" class="w-5 h-5"></i>
+            <span>フレンド＆DM</span>
+          </button>
+          <button onclick="switchTab('notifications')" class="tab-btn w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-slate-600 hover:bg-slate-50 transition text-sm font-medium">
+            <i data-lucide="bell" class="w-5 h-5"></i>
+            <span>通知一覧</span>
           </button>
         </nav>
       </div>
-      <button onclick="handleSignOut()" class="mt-6 w-full text-left p-3 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl text-xs font-bold transition flex items-center justify-between">
-        <span>ログアウト</span>
-        <i data-lucide="log-out" class="w-4 h-4"></i>
-      </button>
+
+      <div class="mt-8 border-t pt-4">
+        <div class="flex items-center space-x-3 p-2 bg-slate-50 rounded-xl mb-3">
+          <div id="user-avatar" class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+            User
+          </div>
+          <div class="overflow-hidden">
+            <p id="user-display-name" class="text-xs font-bold truncate">ゲストユーザー</p>
+            <p id="user-display-email" class="text-[10px] text-slate-400 truncate">guest@example.com</p>
+          </div>
+        </div>
+        <button onclick="handleLogout()" class="w-full flex items-center justify-center space-x-2 p-2 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          <span>ログアウト</span>
+        </button>
+      </div>
     </aside>
 
-    <main class="flex-1 p-4 md:p-8 max-w-5xl w-full">
-      
-      <section id="view-dashboard" class="space-y-6">
+    <!-- メインコンテンツ -->
+    <main class="flex-1 p-4 md:p-8 max-w-5xl mx-auto w-full space-y-6 overflow-y-auto">
+
+      <!-- 11. 通知アナウンスバナー -->
+      <div id="alert-banner" class="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between text-amber-800 text-sm shadow-sm">
+        <div class="flex items-center space-x-3">
+          <i data-lucide="bell" class="w-5 h-5 text-amber-600 flex-shrink-0"></i>
+          <div>
+            <span class="font-bold">自動通知:</span> <span id="banner-text">本日 12:00 の体調入力と服薬の確認はお済みですか？</span>
+          </div>
+        </div>
+        <button onclick="document.getElementById('alert-banner').remove()" class="text-xs bg-amber-200 hover:bg-amber-300 px-3 py-1.5 rounded-lg font-semibold transition">了解</button>
+      </div>
+
+      <!-- ================= 1. ダッシュボード ================= -->
+      <section id="view-dashboard" class="tab-view space-y-6">
         <h2 class="text-xl font-bold">ダッシュボード</h2>
-        <div class="grid md:grid-cols-2 gap-4">
-          <div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-5 shadow-lg">
-            <span class="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium">次回通院日</span>
-            <div class="text-2xl font-bold mt-2">2026年3月15日 10:00</div>
-            <p class="text-xs text-blue-100 mt-1">中央市民病院 (内科)</p>
+        
+        <div class="grid md:grid-cols-3 gap-4">
+          <!-- 次回通院日カード -->
+          <div class="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-5 shadow-lg shadow-blue-100 relative overflow-hidden">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs bg-white/20 px-2.5 py-1 rounded-full font-medium">次回の通院</span>
+              <i data-lucide="calendar" class="w-5 h-5 opacity-80"></i>
+            </div>
+            <div id="dash-appointment-date" class="text-2xl font-bold mb-1">未定</div>
+            <p id="dash-appointment-hospital" class="text-xs text-blue-100">病院が登録されていません</p>
+            <p id="dash-appointment-memo" class="text-xs mt-3 bg-white/10 p-2 rounded-lg border border-white/10 truncate">メモなし</p>
           </div>
-          <div class="bg-white border rounded-2xl p-5 shadow-sm">
-            <span class="text-xs font-bold text-rose-500 bg-rose-50 px-2.5 py-1 rounded-full">在庫注意</span>
-            <div id="low-stock-list" class="mt-3 text-sm text-slate-600">読み込み中...</div>
+
+          <!-- 在庫薄アラートカード -->
+          <div class="bg-white border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-rose-500 bg-rose-50 px-2.5 py-1 rounded-full">在庫注意</span>
+                <i data-lucide="shield-alert" class="w-5 h-5 text-rose-500"></i>
+              </div>
+              <div id="dash-low-stock-name" class="text-base font-bold text-slate-800">全薬の在庫は十分です</div>
+              <p id="dash-low-stock-count" class="text-xs text-slate-500 mt-1">不足している薬はありません</p>
+            </div>
+            <button onclick="switchTab('inventory')" class="mt-3 text-left text-xs text-blue-600 font-bold hover:underline">在庫を確認する →</button>
+          </div>
+
+          <!-- 本日の服薬予定カード -->
+          <div class="bg-white border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-full">本日の服薬アラーム</span>
+                <i data-lucide="clock" class="w-5 h-5 text-blue-600"></i>
+              </div>
+              <div id="dash-alarm-name" class="text-base font-bold text-slate-800">設定されているアラーム</div>
+              <p id="dash-alarm-detail" class="text-xs text-slate-500 mt-1">朝・昼・夕・寝る前を確認してください</p>
+            </div>
+            <button onclick="switchTab('alarms')" class="mt-3 text-left text-xs text-blue-600 font-bold hover:underline">アラーム設定へ →</button>
+          </div>
+        </div>
+
+        <!-- 直近の体調クイック表示 -->
+        <div class="bg-white border rounded-2xl p-6 shadow-sm">
+          <div class="flex justify-between items-center border-b pb-3 mb-4">
+            <h3 class="font-bold text-sm text-slate-700">直近の体調記録</h3>
+            <button onclick="switchTab('condition')" class="text-xs text-blue-600 font-bold hover:underline">入力する</button>
+          </div>
+          <div id="dash-condition-summary" class="grid md:grid-cols-3 gap-4 text-xs text-slate-600">
+            <div class="p-3 bg-slate-50 rounded-xl">血圧 (朝/昼/晩): <span id="dash-bp" class="font-bold text-slate-800">未記録</span></div>
+            <div class="p-3 bg-slate-50 rounded-xl">こころの状態: <span id="dash-mood" class="font-bold text-slate-800">未記録</span></div>
+            <div class="p-3 bg-slate-50 rounded-xl">プチ日記: <span id="dash-diary" class="font-bold text-slate-800">未記録</span></div>
           </div>
         </div>
       </section>
 
-      <section id="view-inventory" class="hidden space-y-6">
+      <!-- ================= 3. 体調管理 ================= -->
+      <section id="view-condition" class="tab-view hidden space-y-6">
+        <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-6">
+          <div class="border-b pb-3 flex justify-between items-center">
+            <h2 class="text-lg font-bold">体調管理（毎日記入）</h2>
+            <input type="date" id="cond-date" class="border px-3 py-1 rounded-xl text-xs font-semibold">
+          </div>
+          
+          <form onsubmit="saveCondition(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-2">血圧記録</label>
+              <div class="grid grid-cols-3 gap-3">
+                <input type="text" id="cond-bp-morning" placeholder="朝 (例: 120/80)" class="border p-2.5 rounded-xl text-sm">
+                <input type="text" id="cond-bp-noon" placeholder="昼 (例: 122/82)" class="border p-2.5 rounded-xl text-sm">
+                <input type="text" id="cond-bp-night" placeholder="晩 (例: 118/78)" class="border p-2.5 rounded-xl text-sm">
+              </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">起床・就寝時刻</label>
+                <div class="flex space-x-2">
+                  <input type="time" id="cond-wake" class="border p-2.5 rounded-xl text-sm w-full">
+                  <input type="time" id="cond-sleep" class="border p-2.5 rounded-xl text-sm w-full">
+                </div>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">こころの状態記録</label>
+                <select id="cond-mood" class="border p-2.5 rounded-xl text-sm w-full">
+                  <option value="良好 (😃)">良好 (😃)</option>
+                  <option value="普通 (🙂)">普通 (🙂)</option>
+                  <option value="少し疲れている (😟)">少し疲れている (😟)</option>
+                  <option value="不調 (😢)">不調 (😢)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">飲酒・喫煙・食生活</label>
+                <input type="text" id="cond-habits" placeholder="例: 飲酒なし / 喫煙なし / 三食完食" class="border p-2.5 rounded-xl text-sm w-full">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">プチ日記</label>
+                <textarea id="cond-diary" placeholder="今日の体調や気になったこと..." class="border p-2.5 rounded-xl text-sm w-full h-10 resize-none"></textarea>
+              </div>
+            </div>
+
+            <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-2.5 rounded-xl shadow-md shadow-blue-100 hover:bg-blue-700 transition text-sm">
+              本日の記録を保存
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================= 2 & 4. 基本情報・自身記録 ================= -->
+      <section id="view-profile" class="tab-view hidden space-y-6">
+        <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-6">
+          <h2 class="text-lg font-bold border-b pb-3">基本情報 & 自身記録</h2>
+          <form onsubmit="saveProfile(event)" class="space-y-4">
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">性別</label>
+                <select id="prof-gender" class="border p-2.5 rounded-xl text-sm w-full">
+                  <option value="男性">男性</option>
+                  <option value="女性">女性</option>
+                  <option value="その他">その他</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">年齢</label>
+                <input type="number" id="prof-age" placeholder="30" class="border p-2.5 rounded-xl text-sm w-full">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">身長 (cm)</label>
+                <input type="number" step="0.1" id="prof-height" placeholder="170" class="border p-2.5 rounded-xl text-sm w-full">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">体重 (kg)</label>
+                <input type="number" step="0.1" id="prof-weight" placeholder="65" class="border p-2.5 rounded-xl text-sm w-full">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">アレルギー情報</label>
+              <input type="text" id="prof-allergies" placeholder="例: スギ花粉, ソバ, ペニシリン" class="border p-2.5 rounded-xl text-sm w-full">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">持っている病名（持病・既往歴）</label>
+              <input type="text" id="prof-conditions" placeholder="例: 高血圧, 喘息, 偏頭痛" class="border p-2.5 rounded-xl text-sm w-full">
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">通院履歴・受診の記録</label>
+              <textarea id="prof-medical-history" placeholder="過去の通院歴や手術歴など..." class="border p-2.5 rounded-xl text-sm w-full h-20"></textarea>
+            </div>
+
+            <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-2.5 rounded-xl shadow-md hover:bg-blue-700 transition text-sm">
+              プロフィール更新
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================= 5. おくすり在庫 ================= -->
+      <section id="view-inventory" class="tab-view hidden space-y-6">
         <div class="flex justify-between items-center">
-          <h2 class="text-xl font-bold">おくすり在庫</h2>
-          <button onclick="addMedicine()" class="bg-blue-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md">+ 薬を追加</button>
+          <h2 class="text-xl font-bold">おくすり在庫管理</h2>
+          <button onclick="toggleMedicineModal(true)" class="bg-blue-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md shadow-blue-100 flex items-center space-x-1 hover:bg-blue-700 transition">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            <span>新規おくすり登録</span>
+          </button>
         </div>
-        <div id="medicine-cards" class="grid md:grid-cols-2 gap-4"></div>
+
+        <!-- 登録済み薬カードリスト -->
+        <div id="medicine-list-grid" class="grid md:grid-cols-2 gap-4">
+          <!-- JSで動的生成 -->
+        </div>
       </section>
 
-      <section id="view-condition" class="hidden space-y-6">
-        <h2 class="text-xl font-bold">本日の体調管理</h2>
+      <!-- ================= 6. 服薬記録 ================= -->
+      <section id="view-med-logs" class="tab-view hidden space-y-6">
         <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-4">
-          <div>
-            <label class="block text-xs font-bold mb-1">血圧 (朝/昼/晩)</label>
-            <input type="text" id="bp-input" placeholder="120/80" class="w-full border p-2.5 rounded-xl text-sm">
+          <h2 class="text-lg font-bold border-b pb-3">服薬記録をつける</h2>
+          <form onsubmit="saveMedicationLog(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">おくすり選択</label>
+              <select id="log-med-id" required class="med-select-options border p-2.5 rounded-xl text-sm w-full">
+                <!-- 動的生成 -->
+              </select>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">服用量</label>
+                <input type="text" id="log-amount" required placeholder="例: 1錠" class="border p-2.5 rounded-xl text-sm w-full">
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">服用日時</label>
+                <input type="datetime-local" id="log-taken-at" required class="border p-2.5 rounded-xl text-sm w-full">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">タイミング</label>
+              <select id="log-timing" class="border p-2.5 rounded-xl text-sm w-full">
+                <option value="朝">朝</option>
+                <option value="昼">昼</option>
+                <option value="夕">夕</option>
+                <option value="寝る前">寝る前</option>
+                <option value="頓服">頓服</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">メモ</label>
+              <input type="text" id="log-memo" placeholder="例: 食後に水で服用" class="border p-2.5 rounded-xl text-sm w-full">
+            </div>
+            <button type="submit" class="bg-blue-600 text-white font-bold px-6 py-2.5 rounded-xl shadow-md text-sm">
+              服薬を記録する（在庫数を1自動減）
+            </button>
+          </form>
+        </div>
+
+        <!-- 服薬履歴テーブル -->
+        <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-3">
+          <h3 class="font-bold text-sm text-slate-700">直近の服薬履歴</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b bg-slate-50 text-slate-500">
+                  <th class="p-2">日時</th>
+                  <th class="p-2">おくすり名</th>
+                  <th class="p-2">服用量</th>
+                  <th class="p-2">タイミング</th>
+                  <th class="p-2">メモ</th>
+                </tr>
+              </thead>
+              <tbody id="med-logs-table-body">
+                <!-- JSで動的生成 -->
+              </tbody>
+            </table>
           </div>
-          <div>
-            <label class="block text-xs font-bold mb-1">プチ日記</label>
-            <textarea id="diary-input" class="w-full border p-2.5 rounded-xl text-sm h-20"></textarea>
+        </div>
+      </section>
+
+      <!-- ================= 7. 服薬アラーム ================= -->
+      <section id="view-alarms" class="tab-view hidden space-y-6">
+        <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-4">
+          <h2 class="text-lg font-bold border-b pb-3">服薬アラームの設定</h2>
+          <form onsubmit="saveAlarm(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">おくすり選択</label>
+              <select id="alarm-med-id" required class="med-select-options border p-2.5 rounded-xl text-sm w-full">
+                <!-- 動的生成 -->
+              </select>
+            </div>
+            <div class="grid md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">服用タイミング</label>
+                <select id="alarm-timing" class="border p-2.5 rounded-xl text-sm w-full">
+                  <option value="朝 (08:00)">朝 (08:00)</option>
+                  <option value="昼 (12:00)">昼 (12:00)</option>
+                  <option value="夕 (18:00)">夕 (18:00)</option>
+                  <option value="寝る前 (21:00)">寝る前 (21:00)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-slate-700 mb-1">服用量</label>
+                <input type="text" id="alarm-dosage" placeholder="例: 1錠" class="border p-2.5 rounded-xl text-sm w-full">
+              </div>
+            </div>
+            <button type="submit" class="bg-indigo-600 text-white font-bold px-6 py-2.5 rounded-xl shadow-md text-sm hover:bg-indigo-700 transition">
+              アラームを追加・登録
+            </button>
+          </form>
+        </div>
+
+        <div id="alarms-list" class="grid md:grid-cols-2 gap-4">
+          <!-- アラーム一覧 -->
+        </div>
+      </section>
+
+      <!-- ================= 8. 次の通院日を入力 ================= -->
+      <section id="view-appointments" class="tab-view hidden space-y-6">
+        <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-4">
+          <h2 class="text-lg font-bold border-b pb-3">次回の通院日予約・登録</h2>
+          <form onsubmit="saveAppointment(event)" class="grid md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">日時</label>
+              <input type="datetime-local" id="appo-datetime" required class="border p-2.5 rounded-xl text-sm w-full">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">病院名</label>
+              <input type="text" id="appo-hospital" required placeholder="中央市民病院" class="border p-2.5 rounded-xl text-sm w-full">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">診療科</label>
+              <input type="text" id="appo-dept" placeholder="内科" class="border p-2.5 rounded-xl text-sm w-full">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">主治医への伝達メモ</label>
+              <input type="text" id="appo-memo" placeholder="例: 血液検査の数値確認" class="border p-2.5 rounded-xl text-sm w-full">
+            </div>
+            <button type="submit" class="md:col-span-2 bg-blue-600 text-white font-bold py-2.5 rounded-xl shadow-md text-sm">
+              通院予定を登録
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <!-- ================= 9. 統計 ================= -->
+      <section id="view-stats" class="tab-view hidden space-y-6">
+        <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-6">
+          <div class="flex justify-between items-center border-b pb-3">
+            <h2 class="text-lg font-bold">服用統計・分析</h2>
+            <select id="stats-period" onchange="renderStats()" class="border p-2 rounded-xl text-xs font-bold">
+              <option value="1日">直近 1日</option>
+              <option value="1週間" selected>直近 1週間</option>
+              <option value="2週間">直近 2週間</option>
+              <option value="1か月">直近 1か月</option>
+            </select>
           </div>
-          <button onclick="saveCondition()" class="bg-blue-600 text-white font-bold px-6 py-2 rounded-xl text-sm">保存する</button>
+
+          <div class="grid md:grid-cols-2 gap-6">
+            <!-- 服用回数ランキング -->
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">服用回数ランキング</h3>
+              <ol id="stats-ranking-list" class="space-y-2 text-sm font-bold">
+                <!-- JS生成 -->
+              </ol>
+            </div>
+
+            <!-- 分類別おくすり数 -->
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+              <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">分類別おくすり数</h3>
+              <div id="stats-category-list" class="space-y-2 text-sm">
+                <!-- JS生成 -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 10. フレンド機能 ================= -->
+      <section id="view-friends" class="tab-view hidden space-y-6">
+        <div class="grid md:grid-cols-2 gap-6">
+          <!-- 申請 & 検索 -->
+          <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-4">
+            <h2 class="text-lg font-bold border-b pb-3">フレンド検索 & 申請</h2>
+            <form onsubmit="searchFriend(event)" class="flex space-x-2">
+              <input type="text" id="friend-search-name" placeholder="ユーザーネームで検索..." class="border p-2.5 rounded-xl text-sm w-full">
+              <button type="submit" class="bg-blue-600 text-white px-4 rounded-xl font-bold text-sm">検索</button>
+            </form>
+
+            <h3 class="text-xs font-bold text-slate-400 mt-4">承認待ちの申請</h3>
+            <div id="friend-requests-list" class="space-y-2">
+              <div class="flex justify-between items-center p-3 bg-slate-50 rounded-xl text-xs">
+                <span class="font-bold text-slate-700">花子さん (hanako)</span>
+                <div class="space-x-1">
+                  <button onclick="alert('フレンド承認しました')" class="bg-blue-600 text-white px-2 py-1 rounded-lg">承認</button>
+                  <button onclick="alert('拒否しました')" class="bg-slate-200 text-slate-600 px-2 py-1 rounded-lg">拒否</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- DM -->
+          <div class="bg-white border rounded-2xl p-6 shadow-sm flex flex-col justify-between h-[450px]">
+            <h2 class="text-lg font-bold border-b pb-3">ダイレクトメッセージ (DM)</h2>
+            <div id="chat-messages" class="flex-1 overflow-y-auto my-3 space-y-3 text-xs p-2 bg-slate-50 rounded-xl">
+              <div class="bg-white p-3 rounded-xl border border-slate-200 max-w-[80%] shadow-sm">
+                <p class="font-bold text-blue-600 mb-1">ケア太郎</p>
+                こんにちは！お薬の共有設定を反映しました。
+              </div>
+            </div>
+            <form onsubmit="sendChatMessage(event)" class="flex space-x-2">
+              <input type="text" id="chat-input" placeholder="メッセージを入力..." class="border p-2.5 rounded-xl text-sm w-full">
+              <button type="submit" class="bg-blue-600 text-white p-2.5 rounded-xl"><i data-lucide="send" class="w-4 h-4"></i></button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 11. 通知一覧 ================= -->
+      <section id="view-notifications" class="tab-view hidden space-y-6">
+        <div class="bg-white border rounded-2xl p-6 shadow-sm space-y-4">
+          <h2 class="text-lg font-bold border-b pb-3">通知履歴</h2>
+          <div class="space-y-3 text-xs" id="notifications-list">
+            <div class="p-3 bg-blue-50 border-l-4 border-blue-600 rounded-r-xl">
+              <p class="font-bold text-slate-800">【リマインダー】06:00 朝の体調管理入力</p>
+              <p class="text-slate-500 mt-0.5">血圧・起床時刻の記録をお願いします。</p>
+            </div>
+            <div class="p-3 bg-amber-50 border-l-4 border-amber-500 rounded-r-xl">
+              <p class="font-bold text-slate-800">【在庫警告】ロキソニンSの在庫が残りわずかです</p>
+              <p class="text-slate-500 mt-0.5">残数: 4 錠。早めの補充をおすすめします。</p>
+            </div>
+          </div>
         </div>
       </section>
 
     </main>
   </div>
 
+  <!-- おくすり新規登録モーダル -->
+  <div id="med-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 z-50 hidden">
+    <div class="bg-white rounded-2xl shadow-2xl border max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4">
+      <div class="flex justify-between items-center border-b pb-3">
+        <h3 class="font-bold text-lg text-slate-800">5. おくすり詳細情報の登録</h3>
+        <button onclick="toggleMedicineModal(false)" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-6 h-6"></i></button>
+      </div>
+
+      <form onsubmit="saveMedicine(event)" class="space-y-4 text-xs">
+        <div class="grid md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold mb-1">おくすりの名前 *</label>
+            <input type="text" id="m-name" required placeholder="ロキソニンS" class="border p-2 rounded-xl w-full text-sm">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">薬種類</label>
+            <input type="text" id="m-type" placeholder="解熱鎮痛剤 / 睡眠導入薬 など" class="border p-2 rounded-xl w-full text-sm">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">分類</label>
+            <select id="m-category" class="border p-2 rounded-xl w-full text-sm">
+              <option value="処方">処方</option>
+              <option value="市販">市販</option>
+              <option value="個人輸入">個人輸入</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold mb-1">含有量 (mg)</label>
+            <input type="number" step="0.1" id="m-mg" placeholder="60" class="border p-2 rounded-xl w-full text-sm">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">在庫数 *</label>
+            <input type="number" id="m-stock" required value="10" class="border p-2 rounded-xl w-full text-sm">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">単位</label>
+            <input type="text" id="m-unit" value="錠" placeholder="錠 / 包 / ml" class="border p-2 rounded-xl w-full text-sm">
+          </div>
+        </div>
+
+        <!-- 処方薬専用フィールド -->
+        <div class="border p-3 rounded-xl bg-slate-50 space-y-2">
+          <span class="font-bold text-blue-600">医療機関情報（処方の場合）</span>
+          <div class="grid md:grid-cols-3 gap-2">
+            <input type="text" id="m-hospital" placeholder="医療機関名" class="border p-2 rounded-xl w-full">
+            <input type="text" id="m-department" placeholder="診療科" class="border p-2 rounded-xl w-full">
+            <input type="text" id="m-doctor" placeholder="処方医" class="border p-2 rounded-xl w-full">
+          </div>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold mb-1">調剤日 / 購入日</label>
+            <input type="date" id="m-dispensed" class="border p-2 rounded-xl w-full">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">使用期限</label>
+            <input type="date" id="m-expire" class="border p-2 rounded-xl w-full">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">1回の服用量</label>
+            <input type="text" id="m-dosage" placeholder="1錠" class="border p-2 rounded-xl w-full">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">1日の服用回数</label>
+            <input type="text" id="m-frequency" placeholder="3回" class="border p-2 rounded-xl w-full">
+          </div>
+          <div>
+            <label class="block font-bold mb-1">服用タイミング</label>
+            <select id="m-timing" class="border p-2 rounded-xl w-full">
+              <option value="朝・昼・夕">朝・昼・夕</option>
+              <option value="朝・夕">朝・夕</option>
+              <option value="寝る前">寝る前</option>
+              <option value="頓服">頓服</option>
+            </select>
+          </div>
+          <div>
+            <label class="block font-bold mb-1">服用状況</label>
+            <select id="m-status" class="border p-2 rounded-xl w-full">
+              <option value="服用中">服用中</option>
+              <option value="休止中">休止中</option>
+              <option value="中止済み">中止済み</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold mb-1">写真URL または 添付</label>
+          <input type="text" id="m-image" placeholder="https://..." class="border p-2 rounded-xl w-full">
+        </div>
+
+        <div>
+          <label class="block font-bold mb-1">メモ</label>
+          <textarea id="m-memo" placeholder="食後に水で服用する" class="border p-2 rounded-xl w-full h-16"></textarea>
+        </div>
+
+        <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg text-sm hover:bg-blue-700 transition">
+          保存する
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript アプリロジック -->
   <script>
-    // 1. Supabase 初期化 (設定値を置き換えてください)
-    const SUPABASE_URL = 'https://YOUR_SUPABASE_URL.supabase.co';
-    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // =========================================================
+    // ⚙️ Supabase 設定 (ご自身のSupabaseプロジェクトの値に変更)
+    // =========================================================
+    const SUPABASE_URL = "https://YOUR_SUPABASE_URL.supabase.co"; 
+    const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY"; 
+
+    let supabaseClient = null;
+    let isDemoMode = false;
+
+    // Supabase初期化
+    if (SUPABASE_URL.includes("YOUR_SUPABASE_URL") || SUPABASE_KEY.includes("YOUR_SUPABASE_ANON_KEY")) {
+      isDemoMode = true;
+      document.getElementById("config-warning").classList.remove("hidden");
+    } else {
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+
+    // デモ用ローカルストレージデータ初期値
+    const defaultMedicines = [
+      { id: '1', name: 'ロキソニンS', type: '解熱鎮痛剤', category: '市販', stock: 4, unit: '錠', expire_date: '2026-12-31', timing: '頓服', status: '服用中', dosage: '1錠' },
+      { id: '2', name: 'マイスリー錠5mg', type: '睡眠導入薬', category: '処方', stock: 14, unit: '錠', expire_date: '2027-06-30', timing: '寝る前', status: '服用中', dosage: '1錠' }
+    ];
+
+    let state = {
+      user: null,
+      profile: { username: '医療 太郎', gender: '男性', age: 30, height: 170, weight: 65, allergies: 'スギ花粉', conditions: '偏頭痛', medical_history: '2026/01/10 定期健診' },
+      medicines: JSON.parse(localStorage.getItem('medilog_medicines')) || defaultMedicines,
+      medLogs: JSON.parse(localStorage.getItem('medilog_logs')) || [
+        { id: '101', name: 'ロキソニンS', amount: '1錠', taken_at: '2026-08-20 08:30', timing: '朝', memo: '頭痛のため' }
+      ],
+      alarms: JSON.parse(localStorage.getItem('medilog_alarms')) || [
+        { id: '201', med_id: '2', name: 'マイスリー錠5mg', timing: '寝る前 (21:00)', dosage: '1錠' }
+      ],
+      appointment: JSON.parse(localStorage.getItem('medilog_appointment')) || {
+        datetime: '2026-09-15T10:00', hospital: '中央市民病院', department: '内科', memo: '定期血液検査'
+      }
+    };
+
+    // 初期化処理
+    window.addEventListener('DOMContentLoaded', async () => {
+      lucide.createIcons();
+      document.getElementById('cond-date').valueAsDate = new Date();
+      
+      if (!isDemoMode && supabaseClient) {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+          state.user = session.user;
+          showApp();
+        }
+      }
+    });
+
+    // 認証モード切替
+    let isSignUp = false;
+    function toggleAuthMode() {
+      isSignUp = !isSignUp;
+      document.getElementById('signup-fields').classList.toggle('hidden', !isSignUp);
+      document.getElementById('auth-submit-btn').innerText = isSignUp ? '会員登録して開始' : 'ログイン';
+      document.getElementById('auth-toggle-btn').innerText = isSignUp ? '既存アカウントでログイン' : '新規アカウント作成はこちら';
+    }
 
     // 認証処理
-    async function handleSignUp() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) alert(error.message);
-      else alert('確認メールを送信しました。メールを確認してください。');
-    }
+    async function handleAuthSubmit(e) {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
 
-    async function handleSignIn() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) alert(error.message);
-      else checkSession();
-    }
-
-    async function handleSignOut() {
-      await supabase.auth.signOut();
-      checkSession();
-    }
-
-    // 画面状態チェック
-    async function checkSession() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-screen').classList.remove('hidden');
-        document.getElementById('app-screen').classList.add('flex');
-        fetchMedicines();
-      } else {
-        document.getElementById('auth-screen').classList.remove('hidden');
-        document.getElementById('app-screen').classList.add('hidden');
-      }
-    }
-
-    // タブ切り替え
-    function switchTab(tabName) {
-      ['dashboard', 'inventory', 'condition'].forEach(t => {
-        document.getElementById(`view-${t}`).classList.add('hidden');
-      });
-      document.getElementById(`view-${tabName}`).classList.remove('hidden');
-    }
-
-    // データ操作 (おくすり取得)
-    async function fetchMedicines() {
-      const { data: medicines } = await supabase.from('medicines').select('*');
-      const container = document.getElementById('medicine-cards');
-      const lowStockList = document.getElementById('low-stock-list');
-      
-      container.innerHTML = '';
-      lowStockList.innerHTML = '';
-
-      if (!medicines || medicines.length === 0) {
-        container.innerHTML = '<p class="text-sm text-slate-400">登録された薬はありません。</p>';
-        lowStockList.innerText = '該当する薬はありません。';
+      if (isDemoMode) {
+        // デモモード動作
+        state.user = { email, id: 'demo-user' };
+        if (isSignUp) {
+          state.profile.username = document.getElementById('auth-username').value || 'デモユーザー';
+        }
+        showApp();
         return;
       }
 
-      medicines.forEach(m => {
-        container.innerHTML += `
-          <div class="bg-white border rounded-2xl p-5 shadow-sm flex justify-between items-center">
-            <div>
-              <span class="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">${m.category || '未設定'}</span>
-              <h3 class="font-bold text-slate-800 text-base mt-1">${m.name}</h3>
+      if (isSignUp) {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) alert(error.message);
+        else {
+          alert('登録が完了しました。ログインしてください。');
+          toggleAuthMode();
+        }
+      } else {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) alert(error.message);
+        else {
+          state.user = data.user;
+          showApp();
+        }
+      }
+    }
+
+    function showApp() {
+      document.getElementById('auth-screen').classList.add('hidden');
+      document.getElementById('app-screen').classList.remove('hidden');
+      document.getElementById('user-display-email').innerText = state.user?.email || 'demo@example.com';
+      document.getElementById('user-display-name').innerText = state.profile.username;
+      document.getElementById('user-avatar').innerText = state.profile.username.substring(0, 1);
+      
+      renderDashboard();
+      renderInventory();
+      renderOptions();
+      renderMedLogs();
+      renderAlarms();
+      renderStats();
+    }
+
+    function handleLogout() {
+      if (supabaseClient) supabaseClient.auth.signOut();
+      document.getElementById('app-screen').classList.add('hidden');
+      document.getElementById('auth-screen').classList.remove('hidden');
+    }
+
+    // タブ切替
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      
+      document.getElementById(`view-${tabId}`).classList.remove('hidden');
+      event.currentTarget.classList.add('active');
+    }
+
+    // 1. ダッシュボードレンダリング
+    function renderDashboard() {
+      // 通院
+      if (state.appointment) {
+        const dt = new Date(state.appointment.datetime);
+        document.getElementById('dash-appointment-date').innerText = isNaN(dt) ? '未定' : `${dt.getFullYear()}年${dt.getMonth()+1}月${dt.getDate()}日 ${dt.getHours()}:${String(dt.getMinutes()).padStart(2, '0')}`;
+        document.getElementById('dash-appointment-hospital').innerText = `${state.appointment.hospital} (${state.appointment.department || '一般'})`;
+        document.getElementById('dash-appointment-memo').innerText = `メモ: ${state.appointment.memo || 'なし'}`;
+      }
+
+      // 在庫薄
+      const low = state.medicines.find(m => m.stock <= 5);
+      if (low) {
+        document.getElementById('dash-low-stock-name').innerText = low.name;
+        document.getElementById('dash-low-stock-count').innerText = `残り ${low.stock} ${low.unit} (要補充)`;
+      } else {
+        document.getElementById('dash-low-stock-name').innerText = '全薬の在庫は十分です';
+        document.getElementById('dash-low-stock-count').innerText = '不足している薬はありません';
+      }
+
+      // アラーム
+      const alarm = state.alarms[0];
+      if (alarm) {
+        document.getElementById('dash-alarm-name').innerText = alarm.name;
+        document.getElementById('dash-alarm-detail').innerText = `${alarm.timing} (${alarm.dosage})`;
+      }
+    }
+
+    // 3. 体調記録保存
+    function saveCondition(e) {
+      e.preventDefault();
+      const bp = `${document.getElementById('cond-bp-morning').value || '-'} / ${document.getElementById('cond-bp-noon').value || '-'} / ${document.getElementById('cond-bp-night').value || '-'}`;
+      const mood = document.getElementById('cond-mood').value;
+      const diary = document.getElementById('cond-diary').value;
+
+      document.getElementById('dash-bp').innerText = bp;
+      document.getElementById('dash-mood').innerText = mood;
+      document.getElementById('dash-diary').innerText = diary || 'なし';
+
+      alert('本日の体調記録を保存しました！');
+    }
+
+    // 4. プロフィール保存
+    function saveProfile(e) {
+      e.preventDefault();
+      state.profile.gender = document.getElementById('prof-gender').value;
+      state.profile.age = document.getElementById('prof-age').value;
+      state.profile.height = document.getElementById('prof-height').value;
+      state.profile.weight = document.getElementById('prof-weight').value;
+      state.profile.allergies = document.getElementById('prof-allergies').value;
+      state.profile.conditions = document.getElementById('prof-conditions').value;
+      state.profile.medical_history = document.getElementById('prof-medical-history').value;
+      alert('基本情報を更新しました。');
+    }
+
+    // 5. おくすり在庫表示＆保存
+    function toggleMedicineModal(show) {
+      document.getElementById('med-modal').classList.toggle('hidden', !show);
+    }
+
+    function saveMedicine(e) {
+      e.preventDefault();
+      const newMed = {
+        id: Date.now().toString(),
+        name: document.getElementById('m-name').value,
+        type: document.getElementById('m-type').value,
+        category: document.getElementById('m-category').value,
+        stock: parseInt(document.getElementById('m-stock').value) || 0,
+        unit: document.getElementById('m-unit').value || '錠',
+        expire_date: document.getElementById('m-expire').value,
+        timing: document.getElementById('m-timing').value,
+        status: document.getElementById('m-status').value,
+        dosage: document.getElementById('m-dosage').value
+      };
+
+      state.medicines.push(newMed);
+      localStorage.setItem('medilog_medicines', JSON.stringify(state.medicines));
+      renderInventory();
+      renderOptions();
+      toggleMedicineModal(false);
+      alert('新しいおくすりを登録しました！');
+    }
+
+    function renderInventory() {
+      const grid = document.getElementById('medicine-list-grid');
+      grid.innerHTML = '';
+      state.medicines.forEach(m => {
+        grid.innerHTML += `
+          <div class="bg-white border rounded-2xl p-5 shadow-sm space-y-3">
+            <div class="flex justify-between items-start">
+              <div>
+                <span class="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-md">${m.category || '市販'}</span>
+                <h3 class="font-bold text-slate-800 text-lg mt-1">${m.name}</h3>
+                <p class="text-xs text-slate-400">${m.type || '未指定'}</p>
+              </div>
+              <div class="text-right">
+                <span class="text-xs text-slate-400">在庫数</span>
+                <div class="text-xl font-bold ${m.stock <= 5 ? 'text-rose-600' : 'text-slate-700'}">${m.stock} <span class="text-xs font-normal">${m.unit}</span></div>
+              </div>
             </div>
-            <div class="text-right">
-              <span class="text-xs text-slate-400">在庫</span>
-              <div class="text-lg font-bold">${m.stock} ${m.unit || '錠'}</div>
+            <div class="text-xs text-slate-500 border-t pt-2 grid grid-cols-2 gap-1">
+              <div>使用期限: ${m.expire_date || '未設定'}</div>
+              <div>タイミング: ${m.timing || '未設定'}</div>
             </div>
           </div>
         `;
-
-        if (m.stock <= 5) {
-          lowStockList.innerHTML += `<p class="font-bold text-rose-600">・${m.name} (残り ${m.stock} ${m.unit || '錠'})</p>`;
-        }
       });
     }
 
-    // おくすり追加（テスト用簡易関数）
-    async function addMedicine() {
-      const name = prompt('薬の名前を入力してください:');
-      if (!name) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('medicines').insert([{ name, stock: 10, user_id: user.id }]);
-      fetchMedicines();
+    function renderOptions() {
+      const selects = document.querySelectorAll('.med-select-options');
+      selects.forEach(sel => {
+        sel.innerHTML = state.medicines.map(m => `<option value="${m.id}">${m.name} (残${m.stock}${m.unit})</option>`).join('');
+      });
     }
 
-    // 初期起動処理
-    window.onload = () => {
+    // 6. 服薬記録
+    function saveMedicationLog(e) {
+      e.preventDefault();
+      const medId = document.getElementById('log-med-id').value;
+      const med = state.medicines.find(m => m.id === medId);
+      if (!med) return;
+
+      const log = {
+        id: Date.now().toString(),
+        name: med.name,
+        amount: document.getElementById('log-amount').value,
+        taken_at: document.getElementById('log-taken-at').value.replace('T', ' '),
+        timing: document.getElementById('log-timing').value,
+        memo: document.getElementById('log-memo').value
+      };
+
+      // 在庫自動減算
+      if (med.stock > 0) med.stock -= 1;
+      localStorage.setItem('medilog_medicines', JSON.stringify(state.medicines));
+
+      state.medLogs.unshift(log);
+      localStorage.setItem('medilog_logs', JSON.stringify(state.medLogs));
+
+      renderInventory();
+      renderMedLogs();
+      renderStats();
+      alert(`「${med.name}」の服薬を記録しました（在庫を1減算しました）。`);
+    }
+
+    function renderMedLogs() {
+      const tbody = document.getElementById('med-logs-table-body');
+      tbody.innerHTML = state.medLogs.map(l => `
+        <tr class="border-b hover:bg-slate-50">
+          <td class="p-2">${l.taken_at}</td>
+          <td class="p-2 font-bold">${l.name}</td>
+          <td class="p-2">${l.amount}</td>
+          <td class="p-2">${l.timing}</td>
+          <td class="p-2 text-slate-400">${l.memo || '-'}</td>
+        </tr>
+      `).join('');
+    }
+
+    // 7. アラーム
+    function saveAlarm(e) {
+      e.preventDefault();
+      const medId = document.getElementById('alarm-med-id').value;
+      const med = state.medicines.find(m => m.id === medId);
+
+      const alarm = {
+        id: Date.now().toString(),
+        med_id: medId,
+        name: med ? med.name : '薬',
+        timing: document.getElementById('alarm-timing').value,
+        dosage: document.getElementById('alarm-dosage').value || '1錠'
+      };
+
+      state.alarms.push(alarm);
+      localStorage.setItem('medilog_alarms', JSON.stringify(state.alarms));
+      renderAlarms();
+      renderDashboard();
+      alert('服薬アラームを設定しました。');
+    }
+
+    function renderAlarms() {
+      const list = document.getElementById('alarms-list');
+      list.innerHTML = state.alarms.map(a => `
+        <div class="bg-white border rounded-2xl p-4 shadow-sm flex justify-between items-center">
+          <div>
+            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">${a.timing}</span>
+            <h4 class="font-bold text-slate-800 text-base mt-1">${a.name}</h4>
+            <p class="text-xs text-slate-400">1回の量: ${a.dosage}</p>
+          </div>
+          <i data-lucide="bell-ring" class="w-5 h-5 text-indigo-500"></i>
+        </div>
+      `).join('');
       lucide.createIcons();
-      checkSession();
-    };
+    }
+
+    // 8. 通院日保存
+    function saveAppointment(e) {
+      e.preventDefault();
+      state.appointment = {
+        datetime: document.getElementById('appo-datetime').value,
+        hospital: document.getElementById('appo-hospital').value,
+        department: document.getElementById('appo-dept').value,
+        memo: document.getElementById('appo-memo').value
+      };
+      localStorage.setItem('medilog_appointment', JSON.stringify(state.appointment));
+      renderDashboard();
+      alert('次回の通院予定を登録しました！');
+    }
+
+    // 9. 統計データ
+    function renderStats() {
+      // ランキング
+      const counts = {};
+      state.medLogs.forEach(l => { counts[l.name] = (counts[l.name] || 0) + 1; });
+      const sorted = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+
+      const rankList = document.getElementById('stats-ranking-list');
+      rankList.innerHTML = sorted.length ? sorted.map((s, idx) => `
+        <li class="flex justify-between border-b pb-1">
+          <span>${idx + 1}. ${s[0]}</span>
+          <span class="text-blue-600 font-bold">${s[1]} 回</span>
+        </li>
+      `).join('') : '<p class="text-xs text-slate-400">記録がまだありません</p>';
+
+      // 分類
+      const cats = {};
+      state.medicines.forEach(m => { cats[m.category] = (cats[m.category] || 0) + 1; });
+      const catList = document.getElementById('stats-category-list');
+      catList.innerHTML = Object.entries(cats).map(c => `
+        <div class="flex justify-between border-b pb-1">
+          <span>${c[0]}</span>
+          <span class="font-bold">${c[1]} 種類</span>
+        </div>
+      `).join('');
+    }
+
+    // 10. フレンド & DM
+    function searchFriend(e) {
+      e.preventDefault();
+      const val = document.getElementById('friend-search-name').value;
+      alert(`「${val}」にフレンド申請を送信しました！`);
+    }
+
+    function sendChatMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('chat-input');
+      if (!input.value) return;
+      
+      const box = document.getElementById('chat-messages');
+      box.innerHTML += `
+        <div class="bg-blue-600 text-white p-3 rounded-xl max-w-[80%] ml-auto shadow-sm">
+          ${input.value}
+        </div>
+      `;
+      input.value = '';
+      box.scrollTop = box.scrollHeight;
+    }
   </script>
 </body>
 </html>

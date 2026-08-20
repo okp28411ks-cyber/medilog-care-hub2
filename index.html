@@ -3,285 +3,420 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Medilog Care Hub - 総合健康管理</title>
-  <!-- Tailwind CSS & Lucide Icons -->
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>Medilog Care Hub - 総合健康・服薬管理</title>
+
+  <!-- Lucide Icons & Supabase JS SDK -->
   <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-    body { font-family: 'Inter', sans-serif; background-color: #F8FAFC; }
-    .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); border: 1px solid #E2E8F0; }
-  </style>
+  
+  <!-- CSS読み込み -->
+  <link rel="stylesheet" href="style.css">
 </head>
-<body class="text-slate-800 pb-20 md:pb-0">
+<body>
 
-  <!-- ヘッダー -->
-  <header class="sticky top-0 z-40 glass-card border-b bg-white/80 px-4 py-3 shadow-sm flex justify-between items-center">
-    <div class="flex items-center space-x-2">
-      <div class="p-2 bg-teal-500 text-white rounded-xl shadow-md">
-        <i data-lucide="heart-pulse" class="w-6 h-6"></i>
+  <!-- ヘッダー (すべての画面で固定表示) -->
+  <header class="app-header">
+    <div class="brand-logo">
+      <div class="brand-icon-wrapper">
+        <i data-lucide="heart-pulse"></i>
       </div>
-      <span class="font-bold text-xl tracking-tight text-teal-800">Medilog</span>
+      <span>Medilog Care Hub</span>
     </div>
-    <div id="auth-header" class="flex items-center space-x-2">
-      <button onclick="toggleAuthModal()" id="login-btn" class="text-sm font-medium text-teal-600 hover:text-teal-700 px-3 py-1.5 rounded-lg border border-teal-200">ログイン / 登録</button>
-      <button onclick="logout()" id="logout-btn" class="hidden text-sm text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-lg">ログアウト</button>
+    
+    <div class="auth-status flex gap-2">
+      <button id="auth-btn" onclick="toggleModal('auth-modal')" class="btn btn-primary">
+        <i data-lucide="user"></i> ログイン / 登録
+      </button>
+      <button id="logout-btn" onclick="handleLogout()" class="btn btn-secondary hidden">
+        ログアウト
+      </button>
     </div>
   </header>
 
-  <!-- メインレイアウト -->
-  <div class="max-w-7xl mx-auto flex flex-col md:flex-row min-h-[calc(100vh-61px)]">
-    
-    <!-- サイドバーナビゲーション (Desktop) -->
-    <nav class="hidden md:flex flex-col w-64 border-r border-slate-200 p-4 space-y-1 bg-white">
-      <button onclick="switchTab('dashboard')" class="nav-btn active flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-100"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>ダッシュボード</span></button>
-      <button onclick="switchTab('daily')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-100"><i data-lucide="activity" class="w-5 h-5"></i><span>体調管理記録</span></button>
-      <button onclick="switchTab('medicines')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-100"><i data-lucide="pill" class="w-5 h-5"></i><span>おくすり在庫</span></button>
-      <button onclick="switchTab('profile')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-100"><i data-lucide="user" class="w-5 h-5"></i><span>基本情報・カルテ</span></button>
-      <button onclick="switchTab('stats')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-100"><i data-lucide="bar-chart-2" class="w-5 h-5"></i><span>統計・分析</span></button>
-      <button onclick="switchTab('friends')" class="nav-btn flex items-center space-x-3 px-3 py-2.5 rounded-xl font-medium text-slate-600 hover:bg-slate-100"><i data-lucide="users" class="w-5 h-5"></i><span>フレンド機能</span></button>
+  <div class="app-container flex">
+
+    <!-- サイドバーナビゲーション (デスクトップ向け) -->
+    <nav class="sidebar-nav hidden md-flex">
+      <button onclick="switchTab('dashboard')" class="nav-btn active" id="nav-dashboard">
+        <i data-lucide="layout-dashboard"></i> <span>ダッシュボード</span>
+      </button>
+      <button onclick="switchTab('daily-log')" class="nav-btn" id="nav-daily-log">
+        <i data-lucide="activity"></i> <span>体調管理 (毎日)</span>
+      </button>
+      <button onclick="switchTab('medicine-stock')" class="nav-btn" id="nav-medicine-stock">
+        <i data-lucide="pill"></i> <span>おくすり在庫</span>
+      </button>
+      <button onclick="switchTab('dose-log')" class="nav-btn" id="nav-dose-log">
+        <i data-lucide="check-square"></i> <span>服薬記録</span>
+      </button>
+      <button onclick="switchTab('hospital-visit')" class="nav-btn" id="nav-hospital-visit">
+        <i data-lucide="calendar"></i> <span>通院予定</span>
+      </button>
+      <button onclick="switchTab('stats')" class="nav-btn" id="nav-stats">
+        <i data-lucide="bar-chart-3"></i> <span>統計・分析</span>
+      </button>
+      <button onclick="switchTab('friends')" class="nav-btn" id="nav-friends">
+        <i data-lucide="users"></i> <span>フレンド・DM</span>
+      </button>
+      <button onclick="switchTab('personal-record')" class="nav-btn" id="nav-personal-record">
+        <i data-lucide="file-text"></i> <span>基本情報・自身記録</span>
+      </button>
     </nav>
 
-    <!-- メインコンテンツ領域 -->
-    <main class="flex-1 p-4 md:p-8 max-w-4xl">
+    <!-- メイン表示領域 -->
+    <main class="main-content flex-1 p-6">
 
-      <!-- タブ: ダッシュボード -->
-      <section id="tab-dashboard" class="tab-content space-y-6">
-        <div class="bg-gradient-to-r from-teal-500 to-emerald-600 rounded-2xl p-6 text-white shadow-lg">
-          <h1 class="text-2xl font-bold mb-1" id="welcome-msg">こんにちは</h1>
-          <p class="text-teal-100 text-sm">本日の体調記録と服薬スケジュールを確認しましょう。</p>
+      <!-- ================= 1. ダッシュボード ================= -->
+      <section id="tab-dashboard" class="tab-page">
+        <div class="glass-card p-6 mb-6">
+          <h1 class="text-2xl font-bold mb-1" id="user-greeting">おかえりなさい</h1>
+          <p class="text-muted">本日の健康状態・服薬リマインダー・アラームを確認しましょう。</p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- クイック服薬メモ -->
-          <div class="glass-card p-5 rounded-2xl shadow-sm">
-            <h3 class="font-semibold text-lg text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="clock" class="text-teal-500"></i> 本日の服薬予定</h3>
-            <div id="quick-doses" class="space-y-2 text-sm text-slate-500">
-              おくすりデータがまだ登録されていません。
+        <div class="grid-2 gap-4 mb-6">
+          <!-- 服薬アラーム・タイミング案内 -->
+          <div class="card-elevated p-5">
+            <h3 class="font-bold flex items-center gap-2 mb-3"><i data-lucide="bell" class="text-teal"></i> 本日の服薬アラーム</h3>
+            <div id="today-alarms-list" class="space-y-2 text-sm text-secondary">
+              <!-- JSで動的生成 -->
+              <p class="text-muted">本日の服薬スケジュールはありません。</p>
             </div>
+            <button onclick="toggleModal('dose-alarm-modal')" class="btn btn-secondary w-full mt-4">+ 服薬アラーム設定</button>
           </div>
-          <!-- 通知要約 -->
-          <div class="glass-card p-5 rounded-2xl shadow-sm">
-            <h3 class="font-semibold text-lg text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="bell" class="text-teal-500"></i> リマインダー・お知らせ</h3>
-            <ul id="alerts-list" class="space-y-2 text-sm text-slate-600">
-              <li class="p-2 bg-amber-50 text-amber-700 rounded-lg flex items-center gap-2"><i data-lucide="alert-circle" class="w-4 h-4"></i> 本日の体調記録が未入力です</li>
+
+          <!-- 通知・リマインダーリスト -->
+          <div class="card-elevated p-5">
+            <h3 class="font-bold flex items-center gap-2 mb-3"><i data-lucide="alert-triangle" class="text-amber"></i> 通知・リマインダー</h3>
+            <ul id="notifications-list" class="space-y-2 text-sm">
+              <li class="badge badge-amber w-full p-2 block">体調管理記録が本日未入力です (1日3回推奨)</li>
             </ul>
           </div>
         </div>
       </section>
 
-      <!-- タブ: 体調管理 -->
-      <section id="tab-daily" class="tab-content hidden space-y-6">
-        <h2 class="text-xl font-bold text-slate-800">毎日の体調管理ログ</h2>
-        <form id="daily-log-form" onsubmit="saveDailyLog(event)" class="glass-card p-6 rounded-2xl shadow-sm space-y-4">
+      <!-- ================= 2. 体調管理 (毎日入力) ================= -->
+      <section id="tab-daily-log" class="tab-page hidden">
+        <h2 class="text-xl font-bold mb-4">体調管理 (日次記録)</h2>
+        <form id="form-daily-log" onsubmit="saveDailyLog(event)" class="glass-card p-6 space-y-4">
           <div>
-            <label class="block text-sm font-medium mb-1">血圧 (朝/昼/晩)</label>
-            <div class="grid grid-cols-3 gap-2">
-              <input type="text" id="bp_morning" placeholder="朝 (例:120/80)" class="border p-2 rounded-lg text-sm w-full">
-              <input type="text" id="bp_noon" placeholder="昼" class="border p-2 rounded-lg text-sm w-full">
-              <input type="text" id="bp_night" placeholder="晩" class="border p-2 rounded-lg text-sm w-full">
+            <label class="form-label">血圧記録</label>
+            <div class="grid-3 gap-2">
+              <input type="text" id="daily-bp-morning" placeholder="朝 (例: 120/80)" class="form-input">
+              <input type="text" id="daily-bp-noon" placeholder="昼" class="form-input">
+              <input type="text" id="daily-bp-night" placeholder="夜" class="form-input">
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-4">
+
+          <div class="grid-2 gap-4">
             <div>
-              <label class="block text-sm font-medium mb-1">起床時刻</label>
-              <input type="time" id="wake_time" class="border p-2 rounded-lg text-sm w-full">
+              <label class="form-label">起床時刻</label>
+              <input type="time" id="daily-wake-time" class="form-input">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">就寝時刻</label>
-              <input type="time" id="sleep_time" class="border p-2 rounded-lg text-sm w-full">
+              <label class="form-label">就寝時刻</label>
+              <input type="time" id="daily-sleep-time" class="form-input">
             </div>
           </div>
+
+          <div class="grid-2 gap-4">
+            <div>
+              <label class="form-label">飲酒記録</label>
+              <select id="daily-alcohol" class="form-select">
+                <option value="なし">なし</option>
+                <option value="少量">少量 (缶ビール1本程度)</option>
+                <option value="多め">多め</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">喫煙記録</label>
+              <select id="daily-smoking" class="form-select">
+                <option value="なし">なし</option>
+                <option value="あり">あり</option>
+              </select>
+            </div>
+          </div>
+
           <div>
-            <label class="block text-sm font-medium mb-1">プチ日記 / こころの状態</label>
-            <textarea id="diary" rows="3" placeholder="今日の体調や気分を書き留めましょう" class="border p-2 rounded-lg text-sm w-full"></textarea>
+            <label class="form-label">こころの状態 / プチ日記</label>
+            <textarea id="daily-diary" placeholder="今日の気分や体調の変化を書き残しましょう" class="form-textarea"></textarea>
           </div>
-          <button type="submit" class="w-full bg-teal-600 text-white font-medium py-2.5 rounded-xl hover:bg-teal-700 transition">体調ログを記録する</button>
+
+          <button type="submit" class="btn btn-primary w-full">体調記録を保存</button>
         </form>
       </section>
 
-      <!-- タブ: おくすり管理 -->
-      <section id="tab-medicines" class="tab-content hidden space-y-6">
-        <div class="flex justify-between items-center">
-          <h2 class="text-xl font-bold text-slate-800">おくすり在庫・管理</h2>
-          <button onclick="toggleMedicineModal()" class="bg-teal-600 text-white px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-1.5"><i data-lucide="plus" class="w-4 h-4"></i>薬を追加</button>
+      <!-- ================= 3. おくすり在庫 ================= -->
+      <section id="tab-medicine-stock" class="tab-page hidden">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-bold">おくすり在庫一覧</h2>
+          <button onclick="toggleModal('medicine-modal')" class="btn btn-primary">+ おくすりを登録</button>
         </div>
-        <div id="medicine-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- 動的レンダリング -->
+
+        <div id="medicine-cards-grid" class="grid-2 gap-4">
+          <!-- JSで在庫カード一覧を動的レンダリング -->
         </div>
       </section>
 
-      <!-- タブ: 基本情報 -->
-      <section id="tab-profile" class="tab-content hidden space-y-6">
-        <h2 class="text-xl font-bold text-slate-800">基本情報・カルテ記録</h2>
-        <form id="profile-form" onsubmit="saveProfile(event)" class="glass-card p-6 rounded-2xl shadow-sm space-y-4">
-          <div class="grid grid-cols-2 gap-4">
+      <!-- ================= 4. 服薬記録 ================= -->
+      <section id="tab-dose-log" class="tab-page hidden">
+        <h2 class="text-xl font-bold mb-4">服薬の記録</h2>
+        <form id="form-dose-log" onsubmit="saveDoseLog(event)" class="glass-card p-6 space-y-4 mb-6">
+          <div class="grid-2 gap-4">
             <div>
-              <label class="block text-sm font-medium mb-1">性別</label>
-              <select id="profile-gender" class="border p-2 rounded-lg text-sm w-full">
+              <label class="form-label">おくすり選択 (在庫より)</label>
+              <select id="dose-medicine-select" class="form-select" required></select>
+            </div>
+            <div>
+              <label class="form-label">服用量</label>
+              <input type="text" id="dose-amount" placeholder="例: 1錠" class="form-input" required>
+            </div>
+          </div>
+
+          <div class="grid-2 gap-4">
+            <div>
+              <label class="form-label">日時</label>
+              <input type="datetime-local" id="dose-datetime" class="form-input" required>
+            </div>
+            <div>
+              <label class="form-label">タイミング</label>
+              <select id="dose-timing" class="form-select">
+                <option value="朝">朝</option>
+                <option value="昼">昼</option>
+                <option value="夕">夕</option>
+                <option value="寝る前">寝る前</option>
+                <option value="頓服">頓服・その他</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label">メモ</label>
+            <input type="text" id="dose-notes" placeholder="食後、頭痛時に服用 など" class="form-input">
+          </div>
+
+          <button type="submit" class="btn btn-primary w-full">服用を記録（在庫数を自動消費）</button>
+        </form>
+      </section>
+
+      <!-- ================= 5. 通院日記録 ================= -->
+      <section id="tab-hospital-visit" class="tab-page hidden">
+        <h2 class="text-xl font-bold mb-4">通院日の予約・予定入力</h2>
+        <form id="form-hospital-visit" onsubmit="saveHospitalVisit(event)" class="glass-card p-6 space-y-4">
+          <div class="grid-2 gap-4">
+            <div>
+              <label class="form-label">日時</label>
+              <input type="datetime-local" id="visit-datetime" class="form-input" required>
+            </div>
+            <div>
+              <label class="form-label">病院名</label>
+              <input type="text" id="visit-hospital-name" placeholder="○○クリニック" class="form-input" required>
+            </div>
+          </div>
+
+          <div class="grid-2 gap-4">
+            <div>
+              <label class="form-label">診療科</label>
+              <input type="text" id="visit-department" placeholder="内科・皮膚科など" class="form-input">
+            </div>
+          </div>
+
+          <div>
+            <label class="form-label">主治医への伝達メモ</label>
+            <textarea id="visit-doctor-notes" placeholder="質問したいこと・直近の副作用など" class="form-textarea"></textarea>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-full">通院予定を登録</button>
+        </form>
+      </section>
+
+      <!-- ================= 6. 統計・分析 ================= -->
+      <section id="tab-stats" class="tab-page hidden">
+        <h2 class="text-xl font-bold mb-4">服薬・在庫の統計情報</h2>
+        <div class="grid-2 gap-4">
+          <div class="card-elevated p-5">
+            <h3 class="font-bold mb-2">直近の服用回数</h3>
+            <select id="stats-range-select" class="form-select mb-4">
+              <option value="1day">1日</option>
+              <option value="1week">1週間</option>
+              <option value="2weeks">2週間</option>
+              <option value="1month">1か月</option>
+            </select>
+            <div class="text-3xl font-bold text-teal" id="stats-dose-count">0 次</div>
+          </div>
+
+          <div class="card-elevated p-5">
+            <h3 class="font-bold mb-2">在庫が少ないおくすり</h3>
+            <ul id="low-stock-list" class="space-y-2 text-sm text-rose">
+              <!-- 動的リスト -->
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 7. フレンド機能 & DM ================= -->
+      <section id="tab-friends" class="tab-page hidden">
+        <h2 class="text-xl font-bold mb-4">フレンド共有 & ダイレクトメッセージ</h2>
+        <div class="grid-2 gap-4">
+          <div class="glass-card p-5">
+            <h3 class="font-bold mb-3">ユーザー検索・申請</h3>
+            <div class="flex gap-2">
+              <input type="text" id="friend-search-username" placeholder="ユーザーネームで検索" class="form-input">
+              <button onclick="searchAndApplyFriend()" class="btn btn-primary">申請</button>
+            </div>
+          </div>
+
+          <div class="glass-card p-5">
+            <h3 class="font-bold mb-3">フレンド一覧</h3>
+            <div id="friends-list" class="space-y-2 text-sm"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 8. 基本情報・自身記録 ================= -->
+      <section id="tab-personal-record" class="tab-page hidden">
+        <h2 class="text-xl font-bold mb-4">基本情報・カルテ設定</h2>
+        <form id="form-personal-profile" onsubmit="saveProfile(event)" class="glass-card p-6 space-y-4">
+          <div class="grid-2 gap-4">
+            <div>
+              <label class="form-label">ユーザー名</label>
+              <input type="text" id="profile-username" class="form-input">
+            </div>
+            <div>
+              <label class="form-label">性別</label>
+              <select id="profile-gender" class="form-select">
                 <option value="男">男</option>
                 <option value="女">女</option>
                 <option value="その他">その他</option>
               </select>
             </div>
+          </div>
+
+          <div class="grid-3 gap-2">
             <div>
-              <label class="block text-sm font-medium mb-1">年齢</label>
-              <input type="number" id="profile-age" class="border p-2 rounded-lg text-sm w-full">
+              <label class="form-label">年齢</label>
+              <input type="number" id="profile-age" class="form-input">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">身長 (cm)</label>
-              <input type="number" step="0.1" id="profile-height" class="border p-2 rounded-lg text-sm w-full">
+              <label class="form-label">身長 (cm)</label>
+              <input type="number" step="0.1" id="profile-height" class="form-input">
             </div>
             <div>
-              <label class="block text-sm font-medium mb-1">体重 (kg)</label>
-              <input type="number" step="0.1" id="profile-weight" class="border p-2 rounded-lg text-sm w-full">
+              <label class="form-label">体重 (kg)</label>
+              <input type="number" step="0.1" id="profile-weight" class="form-input">
             </div>
           </div>
+
           <div>
-            <label class="block text-sm font-medium mb-1">アレルギー情報</label>
-            <input type="text" id="profile-allergies" placeholder="例: 卵、ペニシリン" class="border p-2 rounded-lg text-sm w-full">
+            <label class="form-label">アレルギー</label>
+            <input type="text" id="profile-allergies" placeholder="例: ペニシリン、卵" class="form-input">
           </div>
+
           <div>
-            <label class="block text-sm font-medium mb-1">持っている病名・既往歴</label>
-            <textarea id="profile-conditions" rows="2" class="border p-2 rounded-lg text-sm w-full"></textarea>
+            <label class="form-label">持っている病名（既往歴）</label>
+            <textarea id="profile-conditions" class="form-textarea"></textarea>
           </div>
-          <button type="submit" class="bg-teal-600 text-white px-6 py-2 rounded-xl text-sm font-medium">プロフィール更新</button>
+
+          <button type="submit" class="btn btn-primary w-full">基本情報を更新</button>
         </form>
       </section>
 
     </main>
   </div>
 
-  <!-- ボトムナビゲーション (Mobile Only) -->
-  <nav class="md:hidden fixed bottom-0 left-0 right-0 glass-card border-t bg-white/95 px-2 py-2 flex justify-around items-center z-40">
-    <button onclick="switchTab('dashboard')" class="flex flex-col items-center text-xs text-slate-600 p-1"><i data-lucide="layout-dashboard" class="w-5 h-5"></i><span>ホーム</span></button>
-    <button onclick="switchTab('daily')" class="flex flex-col items-center text-xs text-slate-600 p-1"><i data-lucide="activity" class="w-5 h-5"></i><span>体調記録</span></button>
-    <button onclick="switchTab('medicines')" class="flex flex-col items-center text-xs text-slate-600 p-1"><i data-lucide="pill" class="w-5 h-5"></i><span>おくすり</span></button>
-    <button onclick="switchTab('profile')" class="flex flex-col items-center text-xs text-slate-600 p-1"><i data-lucide="user" class="w-5 h-5"></i><span>カルテ</span></button>
+  <!-- モバイル用 ボトムナビゲーション -->
+  <nav class="mobile-nav md-hidden">
+    <button onclick="switchTab('dashboard')" class="mobile-nav-btn active"><i data-lucide="layout-dashboard"></i><span>ホーム</span></button>
+    <button onclick="switchTab('daily-log')" class="mobile-nav-btn"><i data-lucide="activity"></i><span>体調</span></button>
+    <button onclick="switchTab('medicine-stock')" class="mobile-nav-btn"><i data-lucide="pill"></i><span>おくすり</span></button>
+    <button onclick="switchTab('friends')" class="mobile-nav-btn"><i data-lucide="users"></i><span>フレンド</span></button>
   </nav>
 
-  <!-- 認証モーダル -->
-  <div id="auth-modal" class="hidden fixed inset-0 z-50 bg-slate-900/50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl relative">
-      <h3 class="text-lg font-bold mb-4" id="auth-title">ログイン / 会員登録</h3>
-      <form id="auth-form" onsubmit="handleAuth(event)" class="space-y-3">
-        <input type="email" id="auth-email" placeholder="メールアドレス" required class="border p-2.5 rounded-lg w-full text-sm">
-        <input type="password" id="auth-password" placeholder="パスワード" required class="border p-2.5 rounded-lg w-full text-sm">
-        <div class="flex gap-2 pt-2">
-          <button type="submit" class="flex-1 bg-teal-600 text-white py-2 rounded-xl text-sm font-medium">サインイン / 登録</button>
-          <button type="button" onclick="toggleAuthModal()" class="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl text-sm">閉じる</button>
+  <!-- ================= モーダル群 ================= -->
+
+  <!-- 会員登録 / ログイン モーダル -->
+  <div id="auth-modal" class="modal-backdrop hidden">
+    <div class="modal-content">
+      <h3 class="text-xl font-bold mb-4">会員登録 / ログイン</h3>
+      <form id="form-auth" onsubmit="handleAuthSubmit(event)" class="space-y-3">
+        <div>
+          <label class="form-label">メールアドレス</label>
+          <input type="email" id="auth-email" class="form-input" required>
+        </div>
+        <div>
+          <label class="form-label">パスワード</label>
+          <input type="password" id="auth-password" class="form-input" required>
+        </div>
+        <div class="flex gap-2 pt-3">
+          <button type="submit" class="btn btn-primary flex-1">ログイン / 登録</button>
+          <button type="button" onclick="toggleModal('auth-modal')" class="btn btn-secondary">閉じる</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- スクリプト統合 -->
-  <script>
-    // Supabase 初期化 (指定のURL & Key)
-    const SUPABASE_URL = 'https://ufmcloqjcolpvzhnobgg.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // Supabaseダッシュボードの Publishable Key を完全指定
-    const client = supabase.createClient(SUPABASE_URL, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVmbWNsb3FqY29scHZ6aG5vYmdnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MjAxNTA0MDAwMH0.placeholder');
-
-    let currentUser = null;
-
-    // 初期化ロード
-    window.addEventListener('DOMContentLoaded', async () => {
-      lucide.createIcons();
-      checkUserStatus();
-    });
-
-    // タブ切り替え処理
-    function switchTab(tabId) {
-      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-      document.getElementById(`tab-${tabId}`)?.classList.remove('hidden');
-    }
-
-    // 認証処理モーダル表示制御
-    function toggleAuthModal() {
-      document.getElementById('auth-modal').classList.toggle('hidden');
-    }
-
-    // Supabase Auth ログイン/会員登録
-    async function handleAuth(e) {
-      e.preventDefault();
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-
-      let { data, error } = await client.auth.signInWithPassword({ email, password });
-      if (error) {
-        // ログイン失敗時は新規作成を自動試行
-        const signup = await client.auth.signUp({ email, password });
-        if (signup.error) return alert(signup.error.message);
-        alert('登録完了メールを確認するか、再度ログインを行ってください。');
-      } else {
-        currentUser = data.user;
-        updateUIOnAuth();
-        toggleAuthModal();
-      }
-    }
-
-    async function checkUserStatus() {
-      const { data } = await client.auth.getUser();
-      if (data.user) {
-        currentUser = data.user;
-        updateUIOnAuth();
-      }
-    }
-
-    function updateUIOnAuth() {
-      if (currentUser) {
-        document.getElementById('login-btn').classList.add('hidden');
-        document.getElementById('logout-btn').classList.remove('hidden');
-        document.getElementById('welcome-msg').innerText = `おかえりなさい 👋`;
-        fetchMedicines();
-      }
-    }
-
-    async function logout() {
-      await client.auth.signOut();
-      location.reload();
-    }
-
-    // 日次体調ログ登録
-    async function saveDailyLog(e) {
-      e.preventDefault();
-      if (!currentUser) return alert('ログインが必要です');
-      
-      const log = {
-        user_id: currentUser.id,
-        bp_morning: document.getElementById('bp_morning').value,
-        bp_noon: document.getElementById('bp_noon').value,
-        bp_night: document.getElementById('bp_night').value,
-        wake_time: document.getElementById('wake_time').value || null,
-        sleep_time: document.getElementById('sleep_time').value || null,
-        diary: document.getElementById('diary').value,
-      };
-
-      const { error } = await client.from('daily_logs').upsert([log]);
-      if (error) alert(error.message);
-      else alert('本日の体調ログを保存しました');
-    }
-
-    // おくすり取得＆表示
-    async function fetchMedicines() {
-      if (!currentUser) return;
-      const { data, error } = await client.from('medicines').select('*').eq('user_id', currentUser.id);
-      const listEl = document.getElementById('medicine-list');
-      
-      if (data && data.length > 0) {
-        listEl.innerHTML = data.map(med => `
-          <div class="glass-card p-4 rounded-2xl flex justify-between items-center">
-            <div>
-              <span class="text-xs bg-teal-100 text-teal-800 font-semibold px-2 py-0.5 rounded-full">${med.category || '未設定'}</span>
-              <h4 class="font-bold text-base mt-1">${med.name}</h4>
-              <p class="text-xs text-slate-500">残量: ${med.stock_count ?? 0} | 含有量: ${med.dosage_mg || '-'}mg</p>
-            </div>
-            <button class="bg-teal-50 text-teal-600 px-3 py-1.5 rounded-xl text-xs font-semibold">服薬する</button>
+  <!-- おくすり追加・編集 モーダル -->
+  <div id="medicine-modal" class="modal-backdrop hidden">
+    <div class="modal-content max-w-lg">
+      <h3 class="text-xl font-bold mb-4">おくすり登録</h3>
+      <form id="form-medicine-add" onsubmit="saveMedicine(event)" class="space-y-3">
+        <div class="grid-2 gap-2">
+          <div>
+            <label class="form-label">おくすりの名前</label>
+            <input type="text" id="med-name" class="form-input" required>
           </div>
-        `).join('');
-      }
-    }
-  </script>
+          <div>
+            <label class="form-label">写真URL/ファイル</label>
+            <input type="text" id="med-photo-url" placeholder="画像URL" class="form-input">
+          </div>
+        </div>
+
+        <div class="grid-2 gap-2">
+          <div>
+            <label class="form-label">含有量 (mg)</label>
+            <input type="number" id="med-dosage-mg" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">製薬会社</label>
+            <input type="text" id="med-pharmaceutical-co" class="form-input">
+          </div>
+        </div>
+
+        <div class="grid-2 gap-2">
+          <div>
+            <label class="form-label">薬種類</label>
+            <input type="text" id="med-category" placeholder="解熱鎮痛剤 など" class="form-input">
+          </div>
+          <div>
+            <label class="form-label">分類</label>
+            <select id="med-classification" class="form-select">
+              <option value="処方">処方</option>
+              <option value="市販">市販</option>
+              <option value="個人輸入">個人輸入</option>
+              <option value="その他">その他</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-2 gap-2">
+          <div>
+            <label class="form-label">現在の在庫数</label>
+            <input type="number" id="med-stock-count" class="form-input" value="0">
+          </div>
+          <div>
+            <label class="form-label">使用期限</label>
+            <input type="date" id="med-expiration-date" class="form-input">
+          </div>
+        </div>
+
+        <div class="flex gap-2 pt-3">
+          <button type="submit" class="btn btn-primary flex-1">登録保存</button>
+          <button type="button" onclick="toggleModal('medicine-modal')" class="btn btn-secondary">キャンセル</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- JavaScript読み込み -->
+  <script src="app.js"></script>
 </body>
 </html>

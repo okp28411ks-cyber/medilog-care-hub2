@@ -11,7 +11,7 @@
 const SUPABASE_URL = "https://ufmcloqjcolpvzhnobgg.supabase.co";
 
 const SUPABASE_ANON_KEY =
-    "ここに現在使用しているSupabaseのPublishable Keyを入れてください";
+    "sb_publishable_mxebX3u8pw2XfPGwtzQmyg_aB2fUSWy";
 
 
 // Supabaseクライアント

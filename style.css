@@ -1,292 +1,388 @@
-/* --- 変数定義・グローバル設定 --- */
+# Let's generate a complete, professional, beautifully styled CSS file (style.css) for Medilog Care Hub app.
+# The user asked for `style.css` after HTML was prepared.
+# We will write a python script to output the style.css file for downloading / delivery.
+
+css_content = """/* ==========================================
+   Medilog Care Hub - Modern Healthcare UI CSS
+   Inspired by medilog-care-hub.base44.app
+   ========================================== */
+
+/* --- CSS Variables & Design Tokens --- */
 :root {
-  --primary-color: #2563eb;
-  --primary-hover: #1d4ed8;
-  --bg-color: #f1f5f9;
-  --card-bg: #ffffff;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
-  --border-color: #e2e8f0;
-  --radius: 10px;
-  --shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
+  /* Brand Colors */
+  --primary-50: #f0fdf4;
+  --primary-100: #dcfce7;
+  --primary-200: #bbf7d0;
+  --primary-300: #86efac;
+  --primary-400: #4ade80;
+  --primary-500: #22c55e;
+  --primary-600: #16a34a;
+  --primary-700: #15803d;
+  --primary-800: #166534;
+  --primary-900: #14532d;
+
+  --teal-50: #f0fdfa;
+  --teal-100: #ccfbf1;
+  --teal-500: #14b8a6;
+  --teal-600: #0d9488;
+  --teal-700: #0f766e;
+
+  /* Accent Colors */
+  --rose-500: #f43f5e;
+  --rose-50: #fff1f2;
+  --amber-500: #f59e0b;
+  --amber-50: #fffbeb;
+  --blue-500: #3b82f6;
+  --blue-50: #eff6ff;
+
+  /* Neutral Surface & Text Colors */
+  --bg-main: #f8fafc;
+  --surface-card: rgba(255, 255, 255, 0.95);
+  --surface-elevated: #ffffff;
+  --border-light: #e2e8f0;
+  --border-subtle: #f1f5f9;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-white: #ffffff;
+
+  /* Elevation & Shadows */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+  --shadow-glass: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-* {
+/* --- Base & Reset --- */
+*, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background-color: var(--bg-color);
-  color: var(--text-main);
-  line-height: 1.5;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
-/* --- ヘッダー --- */
-.header {
-  background-color: #ffffff;
-  border-bottom: 1px solid var(--border-color);
+/* --- Typography --- */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+/* --- Layout Components --- */
+.glass-card {
+  background: var(--surface-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-glass);
+}
+
+.card-elevated {
+  background: var(--surface-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-light);
+  box-shadow: var(--shadow-md);
+}
+
+/* --- Header / Navigation --- */
+header.app-header {
   position: sticky;
   top: 0;
-  z-index: 10;
-}
-
-.header-container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 16px 24px;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border-light);
+  padding: 0.75rem 1.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.brand {
+.brand-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0.75rem;
+  font-weight: 800;
   font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--primary-color);
+  color: var(--teal-700);
 }
 
-.brand-icon {
-  width: 28px;
-  height: 28px;
-}
-
-/* --- メインレイアウト --- */
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 32px 24px;
-}
-
-/* --- ステータスカード（3列レイアウト） --- */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
-}
-
-.stat-card {
-  background-color: var(--card-bg);
-  padding: 20px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  box-shadow: var(--shadow);
-}
-
-.stat-header {
+.brand-icon-wrapper {
+  background: linear-gradient(135deg, var(--teal-500), var(--primary-600));
+  color: white;
+  padding: 0.5rem;
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  margin-bottom: 12px;
+  justify-content: center;
 }
 
-.stat-icon {
-  width: 20px;
-  height: 20px;
-  color: var(--primary-color);
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-}
-
-/* --- コンテンツセクション --- */
-.section-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.section-header h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-}
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 20px;
-}
-
-.loading-text {
-  grid-column: 1 / -1;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 40px 0;
-}
-
-/* --- カード表示（動的取得要素用） --- */
-.card {
-  background-color: var(--card-bg);
-  border-radius: var(--radius);
-  border: 1px solid var(--border-color);
-  padding: 20px;
-  box-shadow: var(--shadow);
+/* --- Navigation Sidebar --- */
+.sidebar-nav {
+  width: 260px;
+  background: #ffffff;
+  border-right: 1px solid var(--border-light);
+  padding: 1.25rem 0.75rem;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 0.35rem;
 }
 
-.card-header-row {
+.nav-btn {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 4px;
-  background-color: #eff6ff;
-  color: var(--primary-color);
-}
-
-.card-time {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-}
-
-.card-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.card-notes {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  white-space: pre-wrap;
-  margin-bottom: 16px;
-}
-
-.card-footer {
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid var(--border-color);
-  padding-top: 12px;
-}
-
-/* --- ボタン共通 --- */
-.btn {
-  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 16px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  border-radius: var(--radius);
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  font-size: 0.925rem;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
   cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
+  width: 100%;
+  text-align: left;
 }
 
-.btn-primary {
-  background-color: var(--primary-color);
+.nav-btn:hover {
+  background-color: var(--primary-50);
+  color: var(--primary-700);
+}
+
+.nav-btn.active {
+  background: linear-gradient(135deg, var(--teal-500), var(--primary-600));
   color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.25);
 }
 
-.btn-primary:hover {
-  background-color: var(--primary-hover);
+.nav-btn svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2;
 }
 
-.btn-outline {
-  background-color: #ffffff;
-  border-color: var(--border-color);
-  color: var(--text-main);
-}
-
-.btn-outline:hover {
-  background-color: #f8fafc;
-}
-
-.btn-danger-text {
-  background: none;
-  border: none;
-  color: #ef4444;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
-
-.btn-danger-text:hover {
-  text-decoration: underline;
-}
-
-.btn-icon {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  color: var(--text-muted);
-}
-
-/* --- フォーム・モーダル --- */
-.modal-overlay {
+/* --- Mobile Bottom Nav --- */
+.mobile-nav {
   position: fixed;
-  inset: 0;
-  background-color: rgba(15, 23, 42, 0.5);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 100;
-}
-
-.modal-content {
-  background-color: #ffffff;
-  width: 90%;
-  max-width: 500px;
-  border-radius: var(--radius);
-  padding: 24px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-}
-
-.modal-header {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(16px);
+  border-top: 1px solid var(--border-light);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  justify-content: space-around;
+  padding: 0.5rem 0.25rem;
+  z-index: 40;
 }
 
+.mobile-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border: none;
+  background: transparent;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.mobile-nav-btn.active {
+  color: var(--teal-600);
+  font-weight: 700;
+}
+
+/* --- Form Controls & Inputs --- */
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: 1rem;
 }
 
 .form-label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  margin-bottom: 6px;
+  color: var(--text-secondary);
+  margin-bottom: 0.35rem;
 }
 
-.form-control {
+.form-input, .form-select, .form-textarea {
   width: 100%;
-  padding: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
   font-size: 0.9rem;
+  color: var(--text-primary);
+  background-color: #ffffff;
+  transition: var(--transition-fast);
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
   outline: none;
+  border-color: var(--teal-500);
+  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
 }
 
-.form-control:focus {
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
-.modal-footer {
+/* --- Buttons --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: var(--transition-normal);
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--teal-600), var(--primary-600));
+  color: white;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.2);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(13, 148, 136, 0.3);
+}
+
+.btn-secondary {
+  background-color: var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.btn-secondary:hover {
+  background-color: var(--border-light);
+}
+
+.btn-danger {
+  background-color: var(--rose-500);
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #e11d48;
+}
+
+/* --- Medicine Cards & Badges --- */
+.badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-teal {
+  background-color: var(--teal-50);
+  color: var(--teal-700);
+  border: 1px solid var(--teal-100);
+}
+
+.badge-amber {
+  background-color: var(--amber-50);
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-rose {
+  background-color: var(--rose-50);
+  color: #be123c;
+  border: 1px solid #fecdd3;
+}
+
+/* --- Custom Utilities --- */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- Modal styling --- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 50;
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
 }
+
+.modal-content {
+  background: #ffffff;
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 500px;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-lg);
+  animation: modalSlideUp 0.25s ease-out;
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+"""
+
+with open("style.css", "w", encoding="utf-8") as f:
+    f.write(css_content.strip())
+
+print("style.css successfully created.")

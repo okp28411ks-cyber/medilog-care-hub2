@@ -11,12 +11,12 @@
 
     <meta
         name="theme-color"
-        content="#f8fafc"
+        content="#2563eb"
     >
 
     <meta
         name="description"
-        content="まいへるす - 健康・服薬管理アプリ"
+        content="まいへるす - お薬・健康・通院情報をまとめて管理できる健康管理アプリ"
     >
 
     <title>まいへるす</title>
@@ -30,45 +30,32 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
     >
 
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <!-- Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-    <link
-        rel="stylesheet"
-        href="style.css"
-    >
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="style.css">
 </head>
 
 
 <body>
 
 <!-- =========================================================
-     ローディング
+     Loading
 ========================================================= -->
 
 <div
-    id="loading-screen"
-    class="fixed inset-0 z-[9999] bg-white flex items-center justify-center"
+    id="app-loading"
+    class="fixed inset-0 z-[9999] flex items-center justify-center bg-white"
 >
 
     <div class="text-center">
 
-        <div
-            class="w-14 h-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center mx-auto mb-4"
-        >
-            <i class="fa-solid fa-heart-pulse text-2xl"></i>
-        </div>
+        <div class="loading-spinner mx-auto mb-4"></div>
 
-        <div class="text-xl font-bold text-slate-800">
-            まいへるす
-        </div>
-
-        <div class="text-sm text-slate-400 mt-2">
-            読み込み中...
-        </div>
+        <p class="text-sm text-slate-500">
+            まいへるすを読み込んでいます…
+        </p>
 
     </div>
 
@@ -76,96 +63,120 @@
 
 
 <!-- =========================================================
-     ログイン・会員登録
+     Auth Screen
 ========================================================= -->
 
 <div
     id="auth-screen"
-    class="hidden min-h-screen bg-slate-50 flex items-center justify-center p-4"
+    class="hidden min-h-screen bg-slate-50"
 >
 
-    <div class="w-full max-w-md">
+    <div class="min-h-screen flex items-center justify-center p-4">
 
-        <!-- ロゴ -->
+        <div class="w-full max-w-md">
 
-        <div class="text-center mb-8">
+            <!-- Logo -->
 
-            <div
-                class="w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center mx-auto mb-4 shadow-lg"
-            >
-                <i class="fa-solid fa-heart-pulse text-3xl"></i>
-            </div>
-
-            <h1 class="text-3xl font-bold text-slate-800">
-                まいへるす
-            </h1>
-
-            <p class="text-slate-500 mt-2">
-                あなたの健康とおくすりをまとめて管理
-            </p>
-
-        </div>
-
-
-        <!-- 認証カード -->
-
-        <div class="bg-white rounded-3xl shadow-sm border border-slate-200 p-6">
-
-            <!-- ログイン -->
-
-            <div id="login-form">
-
-                <h2 class="text-xl font-bold text-slate-800 mb-6">
-                    ログイン
-                </h2>
-
-
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                    メールアドレス
-                </label>
-
-                <input
-                    id="login-email"
-                    type="email"
-                    autocomplete="email"
-                    placeholder="example@email.com"
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-                >
-
-
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                    パスワード
-                </label>
-
-                <input
-                    id="login-password"
-                    type="password"
-                    autocomplete="current-password"
-                    placeholder="パスワード"
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 mb-5"
-                >
-
-
-                <button
-                    id="login-button"
-                    onclick="login()"
-                    class="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition"
-                >
-                    ログイン
-                </button>
-
+            <div class="text-center mb-8">
 
                 <div
-                    id="login-error"
-                    class="hidden mt-4 text-sm text-red-500 bg-red-50 rounded-xl p-3"
-                ></div>
+                    class="mx-auto mb-4 w-16 h-16 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg"
+                >
+                    <i class="fa-solid fa-heart-pulse text-2xl"></i>
+                </div>
+
+                <h1 class="text-3xl font-extrabold text-slate-900">
+                    まいへるす
+                </h1>
+
+                <p class="mt-2 text-sm text-slate-400">
+                    あなたの健康を、ひとつに。
+                </p>
+
+            </div>
 
 
-                <div class="text-center mt-6">
+            <!-- Login -->
+
+            <div
+                id="login-form"
+                class="content-card"
+            >
+
+                <div class="mb-6">
+
+                    <h2 class="text-xl font-bold text-slate-900">
+                        ログイン
+                    </h2>
+
+                    <p class="mt-1 text-sm text-slate-400">
+                        アカウントにログインしてください
+                    </p>
+
+                </div>
+
+
+                <form id="login-form-element">
+
+                    <div class="mb-4">
+
+                        <label
+                            for="login-email"
+                            class="form-label"
+                        >
+                            メールアドレス
+                        </label>
+
+                        <input
+                            id="login-email"
+                            type="email"
+                            class="input-field"
+                            placeholder="example@email.com"
+                            autocomplete="email"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="mb-5">
+
+                        <label
+                            for="login-password"
+                            class="form-label"
+                        >
+                            パスワード
+                        </label>
+
+                        <input
+                            id="login-password"
+                            type="password"
+                            class="input-field"
+                            placeholder="パスワード"
+                            autocomplete="current-password"
+                            required
+                        >
+
+                    </div>
+
 
                     <button
-                        onclick="showRegisterForm()"
-                        class="text-sm text-blue-600 font-medium hover:underline"
+                        type="submit"
+                        class="primary-button w-full"
+                    >
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        ログイン
+                    </button>
+
+                </form>
+
+
+                <div class="mt-6 text-center">
+
+                    <button
+                        id="show-register-button"
+                        type="button"
+                        class="text-sm font-semibold text-blue-600 hover:text-blue-700"
                     >
                         新規会員登録はこちら
                     </button>
@@ -175,75 +186,133 @@
             </div>
 
 
-            <!-- 会員登録 -->
+            <!-- Register -->
 
-            <div id="register-form" class="hidden">
+            <div
+                id="register-form"
+                class="content-card hidden"
+            >
 
-                <h2 class="text-xl font-bold text-slate-800 mb-6">
-                    新規会員登録
-                </h2>
+                <div class="mb-6">
 
+                    <h2 class="text-xl font-bold text-slate-900">
+                        新規会員登録
+                    </h2>
 
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                    メールアドレス
-                </label>
+                    <p class="mt-1 text-sm text-slate-400">
+                        まいへるすを始めましょう
+                    </p>
 
-                <input
-                    id="register-email"
-                    type="email"
-                    autocomplete="email"
-                    placeholder="example@email.com"
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-                >
+                </div>
 
 
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                    ユーザー名
-                </label>
+                <form id="register-form-element">
 
-                <input
-                    id="register-username"
-                    type="text"
-                    autocomplete="username"
-                    placeholder="ユーザー名"
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-                >
+                    <div class="mb-4">
 
+                        <label
+                            for="register-username"
+                            class="form-label"
+                        >
+                            ユーザーネーム
+                        </label>
 
-                <label class="block text-sm font-medium text-slate-700 mb-2">
-                    パスワード
-                </label>
+                        <input
+                            id="register-username"
+                            type="text"
+                            class="input-field"
+                            placeholder="ユーザーネーム"
+                            maxlength="30"
+                            required
+                        >
 
-                <input
-                    id="register-password"
-                    type="password"
-                    autocomplete="new-password"
-                    placeholder="6文字以上"
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 mb-5"
-                >
+                    </div>
 
 
-                <button
-                    onclick="register()"
-                    class="w-full py-3.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold transition"
-                >
-                    会員登録
-                </button>
+                    <div class="mb-4">
+
+                        <label
+                            for="register-email"
+                            class="form-label"
+                        >
+                            メールアドレス
+                        </label>
+
+                        <input
+                            id="register-email"
+                            type="email"
+                            class="input-field"
+                            placeholder="example@email.com"
+                            autocomplete="email"
+                            required
+                        >
+
+                    </div>
 
 
-                <div
-                    id="register-error"
-                    class="hidden mt-4 text-sm text-red-500 bg-red-50 rounded-xl p-3"
-                ></div>
+                    <div class="mb-4">
+
+                        <label
+                            for="register-password"
+                            class="form-label"
+                        >
+                            パスワード
+                        </label>
+
+                        <input
+                            id="register-password"
+                            type="password"
+                            class="input-field"
+                            placeholder="6文字以上"
+                            minlength="6"
+                            autocomplete="new-password"
+                            required
+                        >
+
+                    </div>
 
 
-                <div class="text-center mt-6">
+                    <div class="mb-5">
+
+                        <label
+                            for="register-password-confirm"
+                            class="form-label"
+                        >
+                            パスワード（確認）
+                        </label>
+
+                        <input
+                            id="register-password-confirm"
+                            type="password"
+                            class="input-field"
+                            placeholder="もう一度入力してください"
+                            minlength="6"
+                            autocomplete="new-password"
+                            required
+                        >
+
+                    </div>
+
 
                     <button
-                        onclick="showLoginForm()"
-                        class="text-sm text-blue-600 font-medium hover:underline"
+                        type="submit"
+                        class="primary-button w-full"
                     >
-                        ログインに戻る
+                        <i class="fa-solid fa-user-plus"></i>
+                        会員登録
+                    </button>
+
+                </form>
+
+
+                <div class="mt-6 text-center">
+
+                    <button
+                        id="show-login-button"
+                        type="button"
+                        class="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                    >
+                        ログイン画面に戻る
                     </button>
 
                 </div>
@@ -258,225 +327,339 @@
 
 
 <!-- =========================================================
-     アプリ本体
+     Main Application
 ========================================================= -->
 
 <div
-    id="app-screen"
+    id="app"
     class="hidden min-h-screen bg-slate-50"
 >
 
 
     <!-- =====================================================
-         サイドバー
+         Mobile Header
+    ====================================================== -->
+
+    <header
+        id="mobile-header"
+        class="lg:hidden fixed top-0 left-0 right-0 z-40 h-16 bg-white border-b border-slate-200"
+    >
+
+        <div class="h-full px-4 flex items-center justify-between">
+
+            <button
+                id="mobile-menu-button"
+                type="button"
+                class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100"
+                aria-label="メニュー"
+            >
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+
+            <div class="flex items-center gap-2">
+
+                <div
+                    class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center"
+                >
+                    <i class="fa-solid fa-heart-pulse text-sm"></i>
+                </div>
+
+                <span class="font-extrabold text-slate-900">
+                    まいへるす
+                </span>
+
+            </div>
+
+
+            <button
+                id="mobile-notification-button"
+                type="button"
+                class="relative w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 hover:bg-slate-100"
+                onclick="showView('notifications')"
+                aria-label="通知"
+            >
+
+                <i class="fa-regular fa-bell"></i>
+
+                <span
+                    id="mobile-notification-badge"
+                    class="hidden absolute top-1 right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center"
+                >
+                    0
+                </span>
+
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- =====================================================
+         Sidebar Overlay
+    ====================================================== -->
+
+    <div
+        id="sidebar-overlay"
+        class="hidden fixed inset-0 z-40 bg-slate-900/30 lg:hidden"
+    ></div>
+
+
+    <!-- =====================================================
+         Sidebar
     ====================================================== -->
 
     <aside
         id="sidebar"
-        class="fixed left-0 top-0 bottom-0 w-64 bg-white border-r border-slate-200 z-50 flex flex-col"
+        class="fixed top-0 left-0 bottom-0 z-50 w-64 bg-white border-r border-slate-200"
     >
 
-        <!-- ロゴ -->
+        <div class="h-full flex flex-col">
 
-        <div class="h-20 flex items-center px-6 border-b border-slate-100">
 
-            <div
-                class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center mr-3"
-            >
-                <i class="fa-solid fa-heart-pulse"></i>
-            </div>
+            <!-- Logo -->
 
-            <div>
+            <div class="h-20 px-5 flex items-center border-b border-slate-100">
 
-                <div class="font-bold text-slate-800">
-                    Medilog
+                <div class="flex items-center gap-3">
+
+                    <div
+                        class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-sm"
+                    >
+                        <i class="fa-solid fa-heart-pulse"></i>
+                    </div>
+
+                    <div>
+
+                        <div class="font-extrabold text-slate-900">
+                            まいへるす
+                        </div>
+
+                        <div class="text-[10px] text-slate-400">
+                            HEALTH MANAGEMENT
+                        </div>
+
+                    </div>
+
                 </div>
 
-                <div class="text-xs text-slate-400">
-                    Care Hub
+            </div>
+
+
+            <!-- Navigation -->
+
+            <nav
+                class="flex-1 overflow-y-auto p-3"
+                aria-label="メインメニュー"
+            >
+
+                <div class="mb-3 px-3 text-[10px] font-bold tracking-wider text-slate-400">
+                    MAIN
+                </div>
+
+
+                <button
+                    class="nav-btn active"
+                    data-view="dashboard"
+                    onclick="showView('dashboard')"
+                >
+                    <i class="fa-solid fa-house"></i>
+                    <span>ホーム</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="medications"
+                    onclick="showView('medications')"
+                >
+                    <i class="fa-solid fa-pills"></i>
+                    <span>お薬</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="medication-logs"
+                    onclick="showView('medication-logs')"
+                >
+                    <i class="fa-solid fa-check-double"></i>
+                    <span>服薬記録</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="reminders"
+                    onclick="showView('reminders')"
+                >
+                    <i class="fa-regular fa-clock"></i>
+                    <span>服薬リマインダー</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="health"
+                    onclick="showView('health')"
+                >
+                    <i class="fa-solid fa-heart-pulse"></i>
+                    <span>健康記録</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="medical"
+                    onclick="showView('medical')"
+                >
+                    <i class="fa-solid fa-file-medical"></i>
+                    <span>医療情報</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="appointments"
+                    onclick="showView('appointments')"
+                >
+                    <i class="fa-regular fa-calendar-check"></i>
+                    <span>通院・予約</span>
+                </button>
+
+
+                <div class="mt-6 mb-3 px-3 text-[10px] font-bold tracking-wider text-slate-400">
+                    COMMUNITY
+                </div>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="friends"
+                    onclick="showView('friends')"
+                >
+                    <i class="fa-solid fa-user-group"></i>
+                    <span>フレンド</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="messages"
+                    onclick="showView('messages')"
+                >
+                    <i class="fa-regular fa-comments"></i>
+                    <span>メッセージ</span>
+
+                    <span
+                        id="message-badge"
+                        class="hidden ml-auto min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold items-center justify-center"
+                    >
+                        0
+                    </span>
+
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="shared-medications"
+                    onclick="showView('shared-medications')"
+                >
+                    <i class="fa-solid fa-share-nodes"></i>
+                    <span>共有されたお薬</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="notifications"
+                    onclick="showView('notifications')"
+                >
+                    <i class="fa-regular fa-bell"></i>
+                    <span>通知</span>
+
+                    <span
+                        id="notification-badge"
+                        class="hidden ml-auto min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold items-center justify-center"
+                    >
+                        0
+                    </span>
+
+                </button>
+
+
+                <div class="mt-6 mb-3 px-3 text-[10px] font-bold tracking-wider text-slate-400">
+                    ACCOUNT
+                </div>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="profile"
+                    onclick="showView('profile')"
+                >
+                    <i class="fa-regular fa-user"></i>
+                    <span>プロフィール</span>
+                </button>
+
+
+                <button
+                    class="nav-btn"
+                    data-view="settings"
+                    onclick="showView('settings')"
+                >
+                    <i class="fa-solid fa-gear"></i>
+                    <span>設定</span>
+                </button>
+
+            </nav>
+
+
+            <!-- User -->
+
+            <div class="p-3 border-t border-slate-100">
+
+                <div class="flex items-center gap-3 p-3">
+
+                    <div
+                        id="sidebar-avatar"
+                        class="friend-avatar"
+                    >
+                        <i class="fa-solid fa-user"></i>
+                    </div>
+
+                    <div class="min-w-0 flex-1">
+
+                        <div
+                            id="sidebar-username"
+                            class="text-sm font-bold text-slate-800 truncate"
+                        >
+                            ユーザー
+                        </div>
+
+                        <div
+                            id="sidebar-email"
+                            class="text-[11px] text-slate-400 truncate"
+                        >
+                            -
+                        </div>
+
+                    </div>
+
+                    <button
+                        id="logout-button"
+                        type="button"
+                        class="w-9 h-9 rounded-lg flex items-center justify-center text-slate-400 hover:bg-red-50 hover:text-red-500"
+                        title="ログアウト"
+                    >
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </button>
+
                 </div>
 
             </div>
-
-        </div>
-
-
-        <!-- ナビゲーション -->
-
-        <nav
-            class="flex-1 overflow-y-auto p-4 space-y-1"
-        >
-
-            <div class="text-xs font-bold text-slate-400 px-3 mb-2">
-                MAIN
-            </div>
-
-
-            <button
-                class="nav-btn active"
-                data-view="dashboard"
-                onclick="showView('dashboard')"
-            >
-                <i class="fa-solid fa-house"></i>
-                <span>ホーム</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="health"
-                onclick="showView('health')"
-            >
-                <i class="fa-solid fa-heart-pulse"></i>
-                <span>体調管理</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="medications"
-                onclick="showView('medications')"
-            >
-                <i class="fa-solid fa-pills"></i>
-                <span>おくすり在庫</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="medication-logs"
-                onclick="showView('medication-logs')"
-            >
-                <i class="fa-solid fa-clipboard-check"></i>
-                <span>服薬記録</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="reminders"
-                onclick="showView('reminders')"
-            >
-                <i class="fa-solid fa-bell"></i>
-                <span>服薬アラーム</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="statistics"
-                onclick="showView('statistics')"
-            >
-                <i class="fa-solid fa-chart-column"></i>
-                <span>統計</span>
-            </button>
-
-
-            <div class="text-xs font-bold text-slate-400 px-3 pt-6 mb-2">
-                HEALTH
-            </div>
-
-
-            <button
-                class="nav-btn"
-                data-view="profile"
-                onclick="showView('profile')"
-            >
-                <i class="fa-solid fa-user"></i>
-                <span>基本情報</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="records"
-                onclick="showView('records')"
-            >
-                <i class="fa-solid fa-file-medical"></i>
-                <span>自身記録</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="appointments"
-                onclick="showView('appointments')"
-            >
-                <i class="fa-solid fa-hospital"></i>
-                <span>通院予定</span>
-            </button>
-
-
-            <div class="text-xs font-bold text-slate-400 px-3 pt-6 mb-2">
-                SOCIAL
-            </div>
-
-
-            <button
-                class="nav-btn"
-                data-view="friends"
-                onclick="showView('friends')"
-            >
-                <i class="fa-solid fa-user-group"></i>
-                <span>フレンド</span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="messages"
-                onclick="showView('messages')"
-            >
-                <i class="fa-solid fa-comments"></i>
-                <span>DM</span>
-                <span
-                    id="dm-badge"
-                    class="hidden ml-auto bg-red-500 text-white text-[10px] rounded-full px-2 py-0.5"
-                >
-                    0
-                </span>
-            </button>
-
-
-            <button
-                class="nav-btn"
-                data-view="notifications"
-                onclick="showView('notifications')"
-            >
-                <i class="fa-solid fa-bell"></i>
-                <span>通知</span>
-                <span
-                    id="notification-badge"
-                    class="hidden ml-auto bg-red-500 text-white text-[10px] rounded-full px-2 py-0.5"
-                >
-                    0
-                </span>
-            </button>
-
-        </nav>
-
-
-        <!-- サイドバー下部 -->
-
-        <div class="p-4 border-t border-slate-100">
-
-            <button
-                class="nav-btn"
-                data-view="settings"
-                onclick="showView('settings')"
-            >
-                <i class="fa-solid fa-gear"></i>
-                <span>設定</span>
-            </button>
-
-
-            <button
-                onclick="logout()"
-                class="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-500 transition"
-            >
-                <i class="fa-solid fa-right-from-bracket w-5"></i>
-                <span>ログアウト</span>
-            </button>
 
         </div>
 
@@ -484,99 +667,57 @@
 
 
     <!-- =====================================================
-         メイン領域
+         Main
     ====================================================== -->
 
-    <main class="ml-64 min-h-screen">
+    <main
+        class="lg:ml-64 min-h-screen pt-16 lg:pt-0"
+    >
 
-
-        <!-- ヘッダー -->
+        <!-- Desktop Header -->
 
         <header
-            class="h-20 bg-white border-b border-slate-200 sticky top-0 z-40 flex items-center justify-between px-6 lg:px-8"
+            class="hidden lg:flex h-20 bg-white border-b border-slate-200 px-8 items-center justify-between"
         >
 
-            <div class="flex items-center gap-3">
+            <div>
 
-                <button
-                    id="mobile-menu-button"
-                    onclick="toggleSidebar()"
-                    class="hidden w-10 h-10 rounded-xl hover:bg-slate-100"
+                <h1
+                    id="page-title"
+                    class="text-xl font-extrabold text-slate-900"
                 >
-                    <i class="fa-solid fa-bars"></i>
-                </button>
+                    ホーム
+                </h1>
 
-
-                <div>
-
-                    <h1
-                        id="page-title"
-                        class="text-xl font-bold text-slate-800"
-                    >
-                        ホーム
-                    </h1>
-
-                    <p
-                        id="page-subtitle"
-                        class="text-sm text-slate-400"
-                    >
-                        今日の健康状態を確認しましょう
-                    </p>
-
-                </div>
+                <p
+                    id="page-subtitle"
+                    class="text-xs text-slate-400 mt-1"
+                >
+                    健康状態を確認しましょう
+                </p>
 
             </div>
 
 
             <div class="flex items-center gap-3">
 
-
-                <!-- 通知 -->
-
                 <button
+                    type="button"
+                    class="relative w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50"
                     onclick="showView('notifications')"
-                    class="relative w-10 h-10 rounded-xl hover:bg-slate-100 text-slate-500"
+                    aria-label="通知"
                 >
 
                     <i class="fa-regular fa-bell"></i>
 
                     <span
-                        id="header-notification-dot"
-                        class="hidden absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"
-                    ></span>
+                        id="desktop-notification-badge"
+                        class="hidden absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-bold items-center justify-center"
+                    >
+                        0
+                    </span>
 
                 </button>
-
-
-                <!-- ユーザー -->
-
-                <div
-                    class="flex items-center gap-3 pl-3 border-l border-slate-200"
-                >
-
-                    <div
-                        class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold"
-                        id="user-avatar"
-                    >
-                        U
-                    </div>
-
-                    <div class="hidden sm:block">
-
-                        <div
-                            id="header-username"
-                            class="text-sm font-bold text-slate-700"
-                        >
-                            ユーザー
-                        </div>
-
-                        <div class="text-xs text-slate-400">
-                            My Account
-                        </div>
-
-                    </div>
-
-                </div>
 
             </div>
 
@@ -584,50 +725,45 @@
 
 
         <!-- =================================================
-             ビュー
+             Content Container
         ================================================== -->
 
         <div class="p-4 sm:p-6 lg:p-8">
 
-
-            <!-- =================================================
-                 DASHBOARD
-            ================================================== -->
+            <!-- Dashboard -->
 
             <section
                 id="view-dashboard"
                 class="view-section"
             >
 
-                <!-- ウェルカム -->
+                <div class="section-heading">
 
-                <div
-                    class="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-3xl p-6 sm:p-8 text-white mb-6"
-                >
+                    <div>
 
-                    <div class="max-w-2xl">
-
-                        <p class="text-blue-100 text-sm mb-2">
+                        <h2>
                             おかえりなさい
-                        </p>
-
-                        <h2
-                            id="welcome-username"
-                            class="text-2xl sm:text-3xl font-bold mb-3"
-                        >
-                            今日も健康管理を続けましょう
                         </h2>
 
-                        <p class="text-blue-100">
-                            体調・服薬・通院情報をまとめて確認できます。
+                        <p>
+                            今日の健康状態を確認しましょう。
                         </p>
 
                     </div>
 
+                    <button
+                        type="button"
+                        class="primary-button"
+                        onclick="openMedicationModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        お薬を登録
+                    </button>
+
                 </div>
 
 
-                <!-- サマリー -->
+                <!-- Dashboard Cards -->
 
                 <div
                     class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6"
@@ -641,13 +777,13 @@
 
                         <div>
 
-                            <div class="text-sm text-slate-400">
-                                登録中のおくすり
+                            <div class="text-xs text-slate-400">
+                                登録中のお薬
                             </div>
 
                             <div
                                 id="dashboard-medication-count"
-                                class="text-2xl font-bold text-slate-800"
+                                class="mt-1 text-2xl font-extrabold text-slate-900"
                             >
                                 0
                             </div>
@@ -660,18 +796,18 @@
                     <div class="dashboard-card">
 
                         <div class="dashboard-icon bg-emerald-50 text-emerald-600">
-                            <i class="fa-solid fa-clipboard-check"></i>
+                            <i class="fa-solid fa-check"></i>
                         </div>
 
                         <div>
 
-                            <div class="text-sm text-slate-400">
+                            <div class="text-xs text-slate-400">
                                 今日の服薬
                             </div>
 
                             <div
-                                id="dashboard-today-medications"
-                                class="text-2xl font-bold text-slate-800"
+                                id="dashboard-taken-count"
+                                class="mt-1 text-2xl font-extrabold text-slate-900"
                             >
                                 0
                             </div>
@@ -684,20 +820,20 @@
                     <div class="dashboard-card">
 
                         <div class="dashboard-icon bg-orange-50 text-orange-600">
-                            <i class="fa-solid fa-user-group"></i>
+                            <i class="fa-regular fa-calendar"></i>
                         </div>
 
                         <div>
 
-                            <div class="text-sm text-slate-400">
-                                フレンド
+                            <div class="text-xs text-slate-400">
+                                次回の通院
                             </div>
 
                             <div
-                                id="dashboard-friend-count"
-                                class="text-2xl font-bold text-slate-800"
+                                id="dashboard-next-appointment"
+                                class="mt-1 text-sm font-extrabold text-slate-900"
                             >
-                                0
+                                未登録
                             </div>
 
                         </div>
@@ -707,19 +843,19 @@
 
                     <div class="dashboard-card">
 
-                        <div class="dashboard-icon bg-red-50 text-red-600">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        <div class="dashboard-icon bg-purple-50 text-purple-600">
+                            <i class="fa-solid fa-user-group"></i>
                         </div>
 
                         <div>
 
-                            <div class="text-sm text-slate-400">
-                                在庫少のおくすり
+                            <div class="text-xs text-slate-400">
+                                フレンド
                             </div>
 
                             <div
-                                id="dashboard-low-stock-count"
-                                class="text-2xl font-bold text-slate-800"
+                                id="dashboard-friend-count"
+                                class="mt-1 text-2xl font-extrabold text-slate-900"
                             >
                                 0
                             </div>
@@ -731,12 +867,11 @@
                 </div>
 
 
-                <!-- ダッシュボード下段 -->
+                <!-- Dashboard Grid -->
 
                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
 
-
-                    <!-- 今日の服薬 -->
+                    <!-- Today's medication -->
 
                     <div class="content-card">
 
@@ -744,33 +879,31 @@
 
                             <div>
 
-                                <h3 class="font-bold text-slate-800">
+                                <h3 class="font-extrabold text-slate-900">
                                     今日の服薬
                                 </h3>
 
                                 <p class="text-xs text-slate-400 mt-1">
-                                    本日の服薬状況
+                                    今日飲む予定のお薬
                                 </p>
 
                             </div>
 
                             <button
+                                type="button"
+                                class="secondary-button"
                                 onclick="showView('medication-logs')"
-                                class="text-sm text-blue-600 font-medium"
                             >
                                 すべて見る
                             </button>
 
                         </div>
 
-                        <div
-                            id="dashboard-medication-list"
-                            class="space-y-3"
-                        >
+                        <div id="dashboard-medication-list">
 
                             <div class="empty-state">
                                 <i class="fa-solid fa-pills"></i>
-                                <p>今日の服薬記録はありません</p>
+                                <p>服薬予定はありません</p>
                             </div>
 
                         </div>
@@ -778,7 +911,7 @@
                     </div>
 
 
-                    <!-- 次回通院 -->
+                    <!-- Next appointment -->
 
                     <div class="content-card">
 
@@ -786,21 +919,22 @@
 
                             <div>
 
-                                <h3 class="font-bold text-slate-800">
+                                <h3 class="font-extrabold text-slate-900">
                                     次回の通院
                                 </h3>
 
                                 <p class="text-xs text-slate-400 mt-1">
-                                    次回の予定を確認
+                                    登録されている次回予約
                                 </p>
 
                             </div>
 
                             <button
+                                type="button"
+                                class="secondary-button"
                                 onclick="showView('appointments')"
-                                class="text-sm text-blue-600 font-medium"
                             >
-                                管理
+                                予定を見る
                             </button>
 
                         </div>
@@ -808,10 +942,972 @@
                         <div id="dashboard-appointment">
 
                             <div class="empty-state">
-                                <i class="fa-solid fa-hospital"></i>
-                                <p>次回の通院予定はありません</p>
+                                <i class="fa-regular fa-calendar"></i>
+                                <p>通院予定はありません</p>
                             </div>
 
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 Medications
+            ================================================== -->
+
+            <section
+                id="view-medications"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>お薬</h2>
+
+                        <p>
+                            現在使用しているお薬を管理します。
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        class="primary-button"
+                        onclick="openMedicationModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        お薬を登録
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="medications-list"
+                    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"
+                >
+
+                    <div class="content-card md:col-span-2 xl:col-span-3">
+
+                        <div class="empty-state">
+                            <i class="fa-solid fa-pills"></i>
+                            <p>お薬を読み込んでいます…</p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 Medication Logs
+            ================================================== -->
+
+            <section
+                id="view-medication-logs"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>服薬記録</h2>
+
+                        <p>
+                            お薬を飲んだ記録を確認・登録できます。
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        class="primary-button"
+                        onclick="openMedicationLogModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        服薬を記録
+                    </button>
+
+                </div>
+
+
+                <div class="content-card">
+
+                    <div
+                        id="medication-logs-list"
+                    >
+
+                        <div class="empty-state">
+                            <i class="fa-solid fa-check-double"></i>
+                            <p>服薬記録を読み込んでいます…</p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 Reminders
+            ================================================== -->
+
+            <section
+                id="view-reminders"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>服薬リマインダー</h2>
+
+                        <p>
+                            お薬を飲む時間を管理します。
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        class="primary-button"
+                        onclick="openReminderModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        リマインダーを追加
+                    </button>
+
+                </div>
+
+
+                <div class="content-card">
+
+                    <div id="reminders-list">
+
+                        <div class="empty-state">
+                            <i class="fa-regular fa-clock"></i>
+                            <p>リマインダーを読み込んでいます…</p>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 Health
+            ================================================== -->
+
+            <section
+                id="view-health"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>健康記録</h2>
+
+                        <p>
+                            毎日の体調や生活習慣を記録します。
+                        </p>
+
+                    </div>
+
+                    <button
+                        type="button"
+                        class="primary-button"
+                        onclick="openHealthRecordModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        今日の記録
+                    </button>
+
+                </div>
+
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+
+                    <div class="content-card">
+
+                        <div class="content-card-header">
+
+                            <div>
+                                <h3 class="font-extrabold text-slate-900">
+                                    今日の健康記録
+                                </h3>
+                            </div>
+
+                        </div>
+
+                        <div id="today-health-record">
+
+                            <div class="empty-state">
+                                <i class="fa-solid fa-heart-pulse"></i>
+                                <p>今日の記録はありません</p>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="content-card">
+
+                        <div class="content-card-header">
+
+                            <div>
+                                <h3 class="font-extrabold text-slate-900">
+                                    体重・身長
+                                </h3>
+                            </div>
+
+                            <button
+                                type="button"
+                                class="secondary-button"
+                                onclick="openBodyRecordModal()"
+                            >
+                                記録する
+                            </button>
+
+                        </div>
+
+                        <div id="body-records-list">
+
+                            <div class="empty-state">
+                                <i class="fa-solid fa-weight-scale"></i>
+                                <p>記録がありません</p>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="content-card xl:col-span-2">
+
+                        <div class="content-card-header">
+
+                            <div>
+                                <h3 class="font-extrabold text-slate-900">
+                                    血圧
+                                </h3>
+
+                                <p class="text-xs text-slate-400 mt-1">
+                                    朝・昼・夜の血圧記録
+                                </p>
+                            </div>
+
+                        </div>
+
+                        <div
+                            id="blood-pressure-list"
+                            class="grid grid-cols-1 md:grid-cols-3 gap-4"
+                        >
+
+                            <div class="bp-card">
+                                <div class="bp-time">朝</div>
+                                <div
+                                    id="bp-morning"
+                                    class="bp-value"
+                                >
+                                    -
+                                </div>
+                            </div>
+
+                            <div class="bp-card">
+                                <div class="bp-time">昼</div>
+                                <div
+                                    id="bp-noon"
+                                    class="bp-value"
+                                >
+                                    -
+                                </div>
+                            </div>
+
+                            <div class="bp-card">
+                                <div class="bp-time">夜</div>
+                                <div
+                                    id="bp-night"
+                                    class="bp-value"
+                                >
+                                    -
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </section>
+            <!-- =========================================================
+     MAIN APPLICATION
+========================================================= -->
+
+<div id="app-container" class="hidden min-h-screen bg-slate-50">
+
+    <!-- =====================================================
+         MOBILE OVERLAY
+    ====================================================== -->
+
+    <div
+        id="mobile-overlay"
+        class="fixed inset-0 z-40 hidden bg-slate-900/30 backdrop-blur-sm"
+        onclick="toggleMobileMenu()"
+    ></div>
+
+
+    <!-- =====================================================
+         SIDEBAR
+    ====================================================== -->
+
+    <aside
+        id="sidebar"
+        class="fixed left-0 top-0 z-50 flex h-screen w-64 flex-col border-r border-slate-200 bg-white"
+    >
+
+        <!-- Logo -->
+
+        <div class="flex h-20 items-center gap-3 border-b border-slate-100 px-5">
+
+            <div
+                class="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20"
+            >
+                <i class="fa-solid fa-heart-pulse text-lg"></i>
+            </div>
+
+            <div>
+                <div class="text-lg font-extrabold tracking-tight text-slate-900">
+                    まいへるす
+                </div>
+
+                <div class="text-[11px] font-medium text-slate-400">
+                    Health Care Hub
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- Navigation -->
+
+        <nav class="flex-1 overflow-y-auto px-3 py-5">
+
+            <div class="mb-3 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                メイン
+            </div>
+
+            <button
+                class="nav-btn active"
+                data-view="dashboard"
+                onclick="showView('dashboard')"
+            >
+                <i class="fa-solid fa-house"></i>
+                <span>ダッシュボード</span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="medications"
+                onclick="showView('medications')"
+            >
+                <i class="fa-solid fa-pills"></i>
+                <span>お薬</span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="medication-logs"
+                onclick="showView('medication-logs')"
+            >
+                <i class="fa-solid fa-check-circle"></i>
+                <span>服薬記録</span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="health"
+                onclick="showView('health')"
+            >
+                <i class="fa-solid fa-heart-pulse"></i>
+                <span>健康記録</span>
+            </button>
+
+
+            <div class="mb-3 mt-6 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                医療情報
+            </div>
+
+            <button
+                class="nav-btn"
+                data-view="diagnoses"
+                onclick="showView('diagnoses')"
+            >
+                <i class="fa-solid fa-stethoscope"></i>
+                <span>診断・病歴</span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="visits"
+                onclick="showView('visits')"
+            >
+                <i class="fa-solid fa-hospital"></i>
+                <span>診察記録</span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="appointments"
+                onclick="showView('appointments')"
+            >
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>通院予定</span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="allergies"
+                onclick="showView('allergies')"
+            >
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>アレルギー</span>
+            </button>
+
+
+            <div class="mb-3 mt-6 px-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                コミュニティ
+            </div>
+
+            <button
+                class="nav-btn"
+                data-view="friends"
+                onclick="showView('friends')"
+            >
+                <i class="fa-solid fa-user-group"></i>
+                <span>友達</span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="messages"
+                onclick="showView('messages')"
+            >
+                <i class="fa-solid fa-comments"></i>
+                <span>メッセージ</span>
+                <span
+                    id="unread-message-badge"
+                    class="ml-auto hidden rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white"
+                >
+                    0
+                </span>
+            </button>
+
+            <button
+                class="nav-btn"
+                data-view="notifications"
+                onclick="showView('notifications')"
+            >
+                <i class="fa-solid fa-bell"></i>
+                <span>通知</span>
+                <span
+                    id="notification-badge"
+                    class="ml-auto hidden rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white"
+                >
+                    0
+                </span>
+            </button>
+
+        </nav>
+
+
+        <!-- Sidebar bottom -->
+
+        <div class="border-t border-slate-100 p-3">
+
+            <button
+                class="nav-btn"
+                data-view="settings"
+                onclick="showView('settings')"
+            >
+                <i class="fa-solid fa-gear"></i>
+                <span>設定</span>
+            </button>
+
+            <button
+                class="nav-btn text-red-500 hover:bg-red-50 hover:text-red-600"
+                onclick="handleLogout()"
+            >
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>ログアウト</span>
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAIN
+    ====================================================== -->
+
+    <main class="ml-64 min-h-screen">
+
+        <!-- Top bar -->
+
+        <header
+            class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur-md sm:px-6"
+        >
+
+            <div class="flex items-center gap-3">
+
+                <button
+                    id="mobile-menu-button"
+                    class="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600"
+                    onclick="toggleMobileMenu()"
+                >
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+
+                <div>
+                    <div
+                        id="page-title"
+                        class="text-sm font-bold text-slate-900"
+                    >
+                        ダッシュボード
+                    </div>
+
+                    <div
+                        id="page-subtitle"
+                        class="hidden text-[11px] text-slate-400 sm:block"
+                    >
+                        今日の健康状態を確認しましょう
+                    </div>
+                </div>
+
+            </div>
+
+
+            <div class="flex items-center gap-3">
+
+                <button
+                    class="relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100"
+                    onclick="showView('notifications')"
+                >
+                    <i class="fa-regular fa-bell"></i>
+
+                    <span
+                        id="top-notification-dot"
+                        class="absolute right-2 top-2 hidden h-2 w-2 rounded-full bg-red-500"
+                    ></span>
+                </button>
+
+
+                <button
+                    class="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-slate-100"
+                    onclick="showView('settings')"
+                >
+
+                    <div
+                        id="header-avatar"
+                        class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600"
+                    >
+                        ?
+                    </div>
+
+                    <div class="hidden text-left sm:block">
+
+                        <div
+                            id="header-username"
+                            class="max-w-32 truncate text-xs font-bold text-slate-700"
+                        >
+                            ユーザー
+                        </div>
+
+                        <div class="text-[10px] text-slate-400">
+                            マイページ
+                        </div>
+
+                    </div>
+
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- =================================================
+             CONTENT
+        ================================================== -->
+
+        <div class="mx-auto max-w-7xl p-4 sm:p-6 lg:p-8">
+
+
+            <!-- =================================================
+                 DASHBOARD
+            ================================================== -->
+
+            <section
+                id="view-dashboard"
+                class="view-section"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <h2>おかえりなさい</h2>
+
+                        <p id="dashboard-greeting">
+                            今日の健康状態を確認しましょう。
+                        </p>
+
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        onclick="showView('medications')"
+                    >
+                        <i class="fa-solid fa-pills"></i>
+                        お薬を確認
+                    </button>
+
+                </div>
+
+
+                <!-- Summary -->
+
+                <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+
+                    <div class="dashboard-card">
+
+                        <div class="dashboard-icon bg-blue-50 text-blue-600">
+                            <i class="fa-solid fa-pills"></i>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-medium text-slate-400">
+                                登録中のお薬
+                            </div>
+
+                            <div
+                                id="dashboard-medication-count"
+                                class="mt-1 text-2xl font-extrabold text-slate-900"
+                            >
+                                0
+                            </div>
+
+                            <div class="text-[11px] text-slate-400">
+                                件
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="dashboard-card">
+
+                        <div class="dashboard-icon bg-emerald-50 text-emerald-600">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-medium text-slate-400">
+                                今日の服薬
+                            </div>
+
+                            <div
+                                id="dashboard-taken-count"
+                                class="mt-1 text-2xl font-extrabold text-slate-900"
+                            >
+                                0
+                            </div>
+
+                            <div class="text-[11px] text-slate-400">
+                                回
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="dashboard-card">
+
+                        <div class="dashboard-icon bg-purple-50 text-purple-600">
+                            <i class="fa-solid fa-calendar"></i>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-medium text-slate-400">
+                                次回の予定
+                            </div>
+
+                            <div
+                                id="dashboard-next-appointment"
+                                class="mt-1 text-lg font-extrabold text-slate-900"
+                            >
+                                --
+                            </div>
+
+                            <div class="text-[11px] text-slate-400">
+                                通院予定
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <div class="dashboard-card">
+
+                        <div class="dashboard-icon bg-orange-50 text-orange-600">
+                            <i class="fa-solid fa-user-group"></i>
+                        </div>
+
+                        <div>
+                            <div class="text-xs font-medium text-slate-400">
+                                友達
+                            </div>
+
+                            <div
+                                id="dashboard-friend-count"
+                                class="mt-1 text-2xl font-extrabold text-slate-900"
+                            >
+                                0
+                            </div>
+
+                            <div class="text-[11px] text-slate-400">
+                                人
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <div class="grid grid-cols-1 gap-6 xl:grid-cols-3">
+
+                    <!-- Today's medication -->
+
+                    <div class="content-card xl:col-span-2">
+
+                        <div class="content-card-header">
+
+                            <div>
+                                <h3 class="font-extrabold text-slate-900">
+                                    今日の服薬
+                                </h3>
+
+                                <p class="mt-1 text-xs text-slate-400">
+                                    今日のお薬を確認できます
+                                </p>
+                            </div>
+
+                            <button
+                                class="secondary-button"
+                                onclick="showView('medication-logs')"
+                            >
+                                服薬記録
+                            </button>
+
+                        </div>
+
+                        <div id="dashboard-medication-list">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-pills"></i>
+                                <p>読み込み中...</p>
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    <!-- Next appointment -->
+
+                    <div class="content-card">
+
+                        <div class="content-card-header">
+
+                            <div>
+                                <h3 class="font-extrabold text-slate-900">
+                                    次回の予定
+                                </h3>
+                            </div>
+
+                            <button
+                                class="secondary-button"
+                                onclick="showView('appointments')"
+                            >
+                                すべて見る
+                            </button>
+
+                        </div>
+
+                        <div id="dashboard-appointment-list">
+                            <div class="empty-state">
+                                <i class="fa-solid fa-calendar-days"></i>
+                                <p>予定はありません</p>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <!-- Quick actions -->
+
+                <div class="mt-6">
+
+                    <div class="mb-4">
+                        <h3 class="font-extrabold text-slate-900">
+                            クイックアクセス
+                        </h3>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+
+                        <button
+                            class="feature-card"
+                            onclick="openMedicationModal()"
+                        >
+                            <i class="fa-solid fa-plus"></i>
+                            <strong>お薬を登録</strong>
+                            <span>新しいお薬を追加</span>
+                        </button>
+
+                        <button
+                            class="feature-card"
+                            onclick="openMedicationLogModal()"
+                        >
+                            <i class="fa-solid fa-check"></i>
+                            <strong>服薬を記録</strong>
+                            <span>服用したお薬を記録</span>
+                        </button>
+
+                        <button
+                            class="feature-card"
+                            onclick="openHealthRecordModal()"
+                        >
+                            <i class="fa-solid fa-heart-pulse"></i>
+                            <strong>健康を記録</strong>
+                            <span>今日の健康状態を記録</span>
+                        </button>
+
+                        <button
+                            class="feature-card"
+                            onclick="openAppointmentModal()"
+                        >
+                            <i class="fa-solid fa-calendar-plus"></i>
+                            <strong>予定を追加</strong>
+                            <span>通院予定を登録</span>
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 MEDICATIONS
+            ================================================== -->
+
+            <section
+                id="view-medications"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>お薬</h2>
+                        <p>現在登録されているお薬を管理します。</p>
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        onclick="openMedicationModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        お薬を登録
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="medications-list"
+                    class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3"
+                >
+
+                    <div class="content-card">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-pills"></i>
+                            <p>読み込み中...</p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 MEDICATION LOGS
+            ================================================== -->
+
+            <section
+                id="view-medication-logs"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>服薬記録</h2>
+                        <p>服用したお薬を記録・確認できます。</p>
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        onclick="openMedicationLogModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        服薬を記録
+                    </button>
+
+                </div>
+
+
+                <div class="content-card">
+
+                    <div
+                        id="medication-logs-list"
+                        class="divide-y divide-slate-100"
+                    >
+
+                        <div class="empty-state">
+                            <i class="fa-solid fa-clock-rotate-left"></i>
+                            <p>服薬記録を読み込み中...</p>
                         </div>
 
                     </div>
@@ -833,423 +1929,104 @@
                 <div class="section-heading">
 
                     <div>
-                        <h2>体調管理</h2>
-                        <p>毎日の体調や生活習慣を記録します。</p>
+                        <h2>健康記録</h2>
+                        <p>日々の体調や生活状態を記録します。</p>
                     </div>
 
                     <button
-                        onclick="openHealthModal()"
                         class="primary-button"
+                        onclick="openHealthRecordModal()"
                     >
                         <i class="fa-solid fa-plus"></i>
-                        今日の記録
+                        健康記録を追加
                     </button>
 
                 </div>
 
 
                 <div
-                    id="health-records-container"
+                    id="health-records-list"
+                    class="grid grid-cols-1 gap-5 lg:grid-cols-2"
+                >
+
+                    <div class="content-card">
+                        <div class="empty-state">
+                            <i class="fa-solid fa-heart-pulse"></i>
+                            <p>健康記録を読み込み中...</p>
+                        </div>
+                    </div>
+
+                </div>
+
+            </section>
+
+
+            <!-- =================================================
+                 DIAGNOSES
+            ================================================== -->
+
+            <section
+                id="view-diagnoses"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>診断・病歴</h2>
+                        <p>診断された病気や病歴を管理します。</p>
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        onclick="openDiagnosisModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        診断を追加
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="diagnoses-list"
+                    class="grid grid-cols-1 gap-5 md:grid-cols-2"
+                ></div>
+
+            </section>
+
+
+            <!-- =================================================
+                 MEDICAL VISITS
+            ================================================== -->
+
+            <section
+                id="view-visits"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>診察記録</h2>
+                        <p>病院・クリニックでの診察記録を管理します。</p>
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        onclick="openVisitModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        診察記録を追加
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="visits-list"
                     class="space-y-4"
                 ></div>
-
-            </section>
-
-
-            <!-- =================================================
-                 MEDICATIONS
-            ================================================== -->
-
-            <section
-                id="view-medications"
-                class="view-section hidden"
-            >
-
-                <div class="section-heading">
-
-                    <div>
-                        <h2>おくすり在庫</h2>
-                        <p>登録したおくすりと在庫を管理します。</p>
-                    </div>
-
-                    <button
-                        onclick="openMedicationModal()"
-                        class="primary-button"
-                    >
-                        <i class="fa-solid fa-plus"></i>
-                        おくすりを追加
-                    </button>
-
-                </div>
-
-
-                <div
-                    id="medications-container"
-                    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
-                ></div>
-
-            </section>
-
-
-            <!-- =================================================
-                 MEDICATION LOGS
-            ================================================== -->
-
-            <section
-                id="view-medication-logs"
-                class="view-section hidden"
-            >
-
-                <div class="section-heading">
-
-                    <div>
-                        <h2>服薬記録</h2>
-                        <p>実際に服用したおくすりを記録します。</p>
-                    </div>
-
-                    <button
-                        onclick="openMedicationLogModal()"
-                        class="primary-button"
-                    >
-                        <i class="fa-solid fa-plus"></i>
-                        服薬を記録
-                    </button>
-
-                </div>
-
-
-                <div
-                    id="medication-logs-container"
-                    class="content-card"
-                ></div>
-
-            </section>
-
-
-            <!-- =================================================
-                 REMINDERS
-            ================================================== -->
-
-            <section
-                id="view-reminders"
-                class="view-section hidden"
-            >
-
-                <div class="section-heading">
-
-                    <div>
-                        <h2>服薬アラーム</h2>
-                        <p>おくすりを飲む時間を設定します。</p>
-                    </div>
-
-                    <button
-                        onclick="openReminderModal()"
-                        class="primary-button"
-                    >
-                        <i class="fa-solid fa-plus"></i>
-                        アラームを追加
-                    </button>
-
-                </div>
-
-
-                <div
-                    id="reminders-container"
-                    class="space-y-3"
-                ></div>
-
-            </section>
-
-
-            <!-- =================================================
-                 STATISTICS
-            ================================================== -->
-
-            <section
-                id="view-statistics"
-                class="view-section hidden"
-            >
-
-                <div class="section-heading">
-
-                    <div>
-                        <h2>統計</h2>
-                        <p>服薬状況やおくすりの登録状況を確認します。</p>
-                    </div>
-
-                    <select
-                        id="statistics-period"
-                        onchange="loadStatistics()"
-                        class="input-field w-auto"
-                    >
-                        <option value="1">1日</option>
-                        <option value="7" selected>1週間</option>
-                        <option value="14">2週間</option>
-                        <option value="30">1か月</option>
-                    </select>
-
-                </div>
-
-
-                <div
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-6"
-                >
-
-                    <div class="content-card">
-
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            服用回数
-                        </h3>
-
-                        <div class="h-64">
-                            <canvas id="medication-chart"></canvas>
-                        </div>
-
-                    </div>
-
-
-                    <div class="content-card">
-
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            分類別のおくすり
-                        </h3>
-
-                        <div class="h-64">
-                            <canvas id="classification-chart"></canvas>
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-
-                    <div class="content-card">
-
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            服用回数ランキング
-                        </h3>
-
-                        <div id="medication-ranking"></div>
-
-                    </div>
-
-
-                    <div class="content-card">
-
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            在庫が少ないおくすり
-                        </h3>
-
-                        <div id="low-stock-list"></div>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =================================================
-                 PROFILE
-            ================================================== -->
-
-            <section
-                id="view-profile"
-                class="view-section hidden"
-            >
-
-                <div class="section-heading">
-
-                    <div>
-                        <h2>基本情報</h2>
-                        <p>あなたの基本的な情報を管理します。</p>
-                    </div>
-
-                    <button
-                        onclick="saveProfile()"
-                        class="primary-button"
-                    >
-                        <i class="fa-solid fa-floppy-disk"></i>
-                        保存
-                    </button>
-
-                </div>
-
-
-                <div class="content-card max-w-3xl">
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-
-
-                        <div>
-
-                            <label class="form-label">
-                                ユーザー名
-                            </label>
-
-                            <input
-                                id="profile-username"
-                                class="input-field"
-                                type="text"
-                            >
-
-                        </div>
-
-
-                        <div>
-
-                            <label class="form-label">
-                                性別
-                            </label>
-
-                            <select
-                                id="profile-gender"
-                                class="input-field"
-                            >
-                                <option value="">選択してください</option>
-                                <option value="男">男</option>
-                                <option value="女">女</option>
-                                <option value="その他">その他</option>
-                            </select>
-
-                        </div>
-
-
-                        <div>
-
-                            <label class="form-label">
-                                年齢
-                            </label>
-
-                            <input
-                                id="profile-age"
-                                class="input-field"
-                                type="number"
-                                min="0"
-                                max="150"
-                            >
-
-                        </div>
-
-
-                        <div>
-
-                            <label class="form-label">
-                                身長（cm）
-                            </label>
-
-                            <input
-                                id="profile-height"
-                                class="input-field"
-                                type="number"
-                                step="0.1"
-                            >
-
-                        </div>
-
-
-                        <div>
-
-                            <label class="form-label">
-                                体重（kg）
-                            </label>
-
-                            <input
-                                id="profile-weight"
-                                class="input-field"
-                                type="number"
-                                step="0.1"
-                            >
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- =================================================
-                 RECORDS
-            ================================================== -->
-
-            <section
-                id="view-records"
-                class="view-section hidden"
-            >
-
-                <div class="section-heading">
-
-                    <div>
-                        <h2>自身記録</h2>
-                        <p>身長・体重、病名、アレルギー、通院履歴を管理します。</p>
-                    </div>
-
-                </div>
-
-
-                <div
-                    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4"
-                >
-
-                    <button
-                        onclick="openBodyRecordModal()"
-                        class="feature-card"
-                    >
-                        <i class="fa-solid fa-weight-scale"></i>
-                        <strong>身長・体重</strong>
-                        <span>身体情報を記録</span>
-                    </button>
-
-
-                    <button
-                        onclick="openVisitModal()"
-                        class="feature-card"
-                    >
-                        <i class="fa-solid fa-hospital"></i>
-                        <strong>通院履歴</strong>
-                        <span>受診した記録を管理</span>
-                    </button>
-
-
-                    <button
-                        onclick="openAllergyModal()"
-                        class="feature-card"
-                    >
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                        <strong>アレルギー</strong>
-                        <span>アレルギー情報を管理</span>
-                    </button>
-
-
-                    <button
-                        onclick="openDiagnosisModal()"
-                        class="feature-card"
-                    >
-                        <i class="fa-solid fa-notes-medical"></i>
-                        <strong>病名</strong>
-                        <span>診断された病名を管理</span>
-                    </button>
-
-                </div>
-
-
-                <div class="mt-6">
-
-                    <div class="content-card">
-
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            登録内容
-                        </h3>
-
-                        <div id="personal-records-container"></div>
-
-                    </div>
-
-                </div>
 
             </section>
 
@@ -1267,23 +2044,58 @@
 
                     <div>
                         <h2>通院予定</h2>
-                        <p>次回の通院予定と主治医への伝達事項を管理します。</p>
+                        <p>病院・クリニックの予定を管理します。</p>
                     </div>
 
                     <button
-                        onclick="openAppointmentModal()"
                         class="primary-button"
+                        onclick="openAppointmentModal()"
                     >
-                        <i class="fa-solid fa-plus"></i>
-                        通院予定を追加
+                        <i class="fa-solid fa-calendar-plus"></i>
+                        予定を追加
                     </button>
 
                 </div>
 
 
                 <div
-                    id="appointments-container"
+                    id="appointments-list"
                     class="space-y-4"
+                ></div>
+
+            </section>
+
+
+            <!-- =================================================
+                 ALLERGIES
+            ================================================== -->
+
+            <section
+                id="view-allergies"
+                class="view-section hidden"
+            >
+
+                <div class="section-heading">
+
+                    <div>
+                        <h2>アレルギー</h2>
+                        <p>薬・食物などのアレルギー情報を管理します。</p>
+                    </div>
+
+                    <button
+                        class="primary-button"
+                        onclick="openAllergyModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        アレルギーを追加
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="allergies-list"
+                    class="grid grid-cols-1 gap-4 md:grid-cols-2"
                 ></div>
 
             </section>
@@ -1301,34 +2113,46 @@
                 <div class="section-heading">
 
                     <div>
-                        <h2>フレンド</h2>
-                        <p>ユーザーネームからフレンドを検索できます。</p>
+                        <h2>友達</h2>
+                        <p>友達と健康情報を共有できます。</p>
                     </div>
 
                 </div>
 
 
+                <!-- Search -->
+
                 <div class="content-card mb-6">
 
-                    <div class="flex gap-3">
+                    <div class="mb-4">
+                        <h3 class="font-extrabold text-slate-900">
+                            ユーザーを検索
+                        </h3>
+
+                        <p class="mt-1 text-xs text-slate-400">
+                            ユーザーネームから友達を探せます。
+                        </p>
+                    </div>
+
+                    <div class="flex gap-2">
 
                         <input
                             id="friend-search-input"
                             type="text"
-                            placeholder="ユーザーネームを検索"
-                            class="input-field flex-1"
+                            class="input-field"
+                            placeholder="ユーザーネームを入力"
+                            onkeydown="if(event.key === 'Enter') searchFriends()"
                         >
 
                         <button
+                            class="primary-button shrink-0"
                             onclick="searchFriends()"
-                            class="primary-button whitespace-nowrap"
                         >
-                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <i class="fa-solid fa-search"></i>
                             検索
                         </button>
 
                     </div>
-
 
                     <div
                         id="friend-search-results"
@@ -1338,34 +2162,42 @@
                 </div>
 
 
-                <div
-                    class="grid grid-cols-1 lg:grid-cols-2 gap-6"
-                >
+                <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+
+                    <!-- Friends -->
 
                     <div class="content-card">
 
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            フレンド一覧
-                        </h3>
+                        <div class="content-card-header">
 
-                        <div
-                            id="friends-list"
-                            class="space-y-3"
-                        ></div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900">
+                                    友達一覧
+                                </h3>
+                            </div>
+
+                        </div>
+
+                        <div id="friends-list"></div>
 
                     </div>
 
 
+                    <!-- Requests -->
+
                     <div class="content-card">
 
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            フレンド申請
-                        </h3>
+                        <div class="content-card-header">
 
-                        <div
-                            id="friend-requests"
-                            class="space-y-3"
-                        ></div>
+                            <div>
+                                <h3 class="font-extrabold text-slate-900">
+                                    友達申請
+                                </h3>
+                            </div>
+
+                        </div>
+
+                        <div id="friend-requests-list"></div>
 
                     </div>
 
@@ -1386,76 +2218,96 @@
                 <div class="section-heading">
 
                     <div>
-                        <h2>DM</h2>
-                        <p>フレンドとメッセージをやり取りできます。</p>
+                        <h2>メッセージ</h2>
+                        <p>友達と直接メッセージをやり取りできます。</p>
                     </div>
 
                 </div>
 
 
-                <div
-                    class="grid grid-cols-1 lg:grid-cols-3 gap-6"
-                >
+                <div class="grid min-h-[600px] grid-cols-1 overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-3">
 
+                    <!-- Conversations -->
 
-                    <!-- フレンド -->
+                    <div class="border-b border-slate-200 lg:border-b-0 lg:border-r">
 
-                    <div class="content-card">
+                        <div class="border-b border-slate-100 p-4">
 
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            フレンド
-                        </h3>
+                            <div class="font-extrabold text-slate-900">
+                                メッセージ
+                            </div>
+
+                        </div>
 
                         <div
-                            id="dm-friend-list"
-                            class="space-y-2"
+                            id="message-friends-list"
+                            class="max-h-[520px] overflow-y-auto"
                         ></div>
 
                     </div>
 
 
-                    <!-- メッセージ -->
+                    <!-- Chat -->
 
-                    <div
-                        class="lg:col-span-2 content-card min-h-[500px] flex flex-col"
-                    >
+                    <div class="flex min-h-[520px] flex-col lg:col-span-2">
 
                         <div
-                            id="dm-header"
-                            class="pb-4 border-b border-slate-100"
+                            id="chat-header"
+                            class="border-b border-slate-100 p-4"
                         >
-                            <div class="text-slate-400 text-sm">
-                                フレンドを選択してください
+
+                            <div class="text-sm font-bold text-slate-400">
+                                友達を選択してください
                             </div>
+
                         </div>
 
 
                         <div
-                            id="messages-container"
-                            class="flex-1 overflow-y-auto py-4 space-y-3"
-                        ></div>
-
-
-                        <div
-                            class="pt-4 border-t border-slate-100 flex gap-2"
+                            id="chat-messages"
+                            class="flex-1 space-y-3 overflow-y-auto bg-slate-50 p-4"
                         >
 
-                            <input
-                                id="message-input"
-                                type="text"
-                                placeholder="メッセージを入力..."
-                                class="input-field flex-1"
-                                onkeydown="handleMessageKeydown(event)"
-                            >
-
-                            <button
-                                onclick="sendMessage()"
-                                class="primary-button"
-                            >
-                                <i class="fa-solid fa-paper-plane"></i>
-                            </button>
+                            <div class="flex h-full items-center justify-center">
+                                <div class="text-center text-slate-400">
+                                    <i class="fa-solid fa-comments mb-3 text-3xl"></i>
+                                    <p class="text-sm">
+                                        メッセージを開始するには<br>
+                                        左側から友達を選択してください。
+                                    </p>
+                                </div>
+                            </div>
 
                         </div>
+
+
+                        <form
+                            id="message-form"
+                            class="hidden border-t border-slate-100 bg-white p-3"
+                            onsubmit="sendMessage(event)"
+                        >
+
+                            <div class="flex gap-2">
+
+                                <input
+                                    id="message-input"
+                                    type="text"
+                                    class="input-field"
+                                    placeholder="メッセージを入力..."
+                                    autocomplete="off"
+                                >
+
+                                <button
+                                    type="submit"
+                                    class="primary-button shrink-0"
+                                >
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                    送信
+                                </button>
+
+                            </div>
+
+                        </form>
 
                     </div>
 
@@ -1477,23 +2329,25 @@
 
                     <div>
                         <h2>通知</h2>
-                        <p>フレンド申請、DM、服薬などの通知を確認できます。</p>
+                        <p>友達申請や共有などのお知らせを確認できます。</p>
                     </div>
 
                     <button
-                        onclick="markAllNotificationsRead()"
                         class="secondary-button"
+                        onclick="markAllNotificationsRead()"
                     >
+                        <i class="fa-solid fa-check-double"></i>
                         すべて既読
                     </button>
 
                 </div>
 
 
-                <div
-                    id="notifications-container"
-                    class="content-card"
-                ></div>
+                <div class="content-card">
+
+                    <div id="notifications-list"></div>
+
+                </div>
 
             </section>
 
@@ -1511,133 +2365,362 @@
 
                     <div>
                         <h2>設定</h2>
-                        <p>アプリの設定を管理します。</p>
+                        <p>プロフィールやアプリの設定を管理します。</p>
                     </div>
 
                 </div>
 
 
-                <div class="space-y-4 max-w-3xl">
+                <!-- Profile -->
 
-                    <div class="content-card">
+                <div class="content-card mb-6">
 
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            アカウント
-                        </h3>
+                    <div class="content-card-header">
 
-                        <div class="space-y-3">
+                        <div>
+                            <h3 class="font-extrabold text-slate-900">
+                                プロフィール
+                            </h3>
 
-                            <div
-                                class="flex items-center justify-between py-3 border-b border-slate-100"
-                            >
-
-                                <span class="text-slate-600">
-                                    メールアドレス
-                                </span>
-
-                                <span
-                                    id="settings-email"
-                                    class="text-sm text-slate-400"
-                                >
-                                    -
-                                </span>
-
-                            </div>
-
-
-                            <div
-                                class="flex items-center justify-between py-3"
-                            >
-
-                                <span class="text-slate-600">
-                                    ユーザーネーム
-                                </span>
-
-                                <span
-                                    id="settings-username"
-                                    class="text-sm text-slate-400"
-                                >
-                                    -
-                                </span>
-
-                            </div>
-
+                            <p class="mt-1 text-xs text-slate-400">
+                                あなたの基本情報
+                            </p>
                         </div>
 
                     </div>
 
 
-                    <div class="content-card">
+                    <form
+                        id="profile-form"
+                        onsubmit="saveProfile(event)"
+                    >
 
-                        <h3 class="font-bold text-slate-800 mb-4">
-                            通知設定
-                        </h3>
+                        <div class="mb-5 flex items-center gap-4">
 
-
-                        <label class="setting-row">
-
-                            <span>
-                                <strong>体調管理リマインダー</strong>
-                                <small>6時・12時・18時</small>
-                            </span>
-
-                            <input
-                                id="setting-health-notification"
-                                type="checkbox"
-                                checked
-                                class="toggle-checkbox"
+                            <div
+                                id="settings-avatar"
+                                class="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-xl font-extrabold text-blue-600"
                             >
+                                ?
+                            </div>
 
-                        </label>
+                            <div>
+
+                                <div
+                                    id="settings-email"
+                                    class="text-sm font-bold text-slate-700"
+                                >
+                                    --
+                                </div>
+
+                                <div class="mt-1 text-xs text-slate-400">
+                                    ログイン中のアカウント
+                                </div>
+
+                            </div>
+
+                        </div>
 
 
-                        <label class="setting-row">
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
 
-                            <span>
-                                <strong>服薬アラーム</strong>
-                                <small>設定した時間に通知</small>
-                            </span>
+                            <div>
 
-                            <input
-                                id="setting-medication-notification"
-                                type="checkbox"
-                                checked
-                                class="toggle-checkbox"
+                                <label class="form-label">
+                                    ユーザーネーム
+                                </label>
+
+                                <input
+                                    id="profile-username"
+                                    type="text"
+                                    class="input-field"
+                                    placeholder="username"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="form-label">
+                                    表示名
+                                </label>
+
+                                <input
+                                    id="profile-display-name"
+                                    type="text"
+                                    class="input-field"
+                                    placeholder="表示名"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="form-label">
+                                    性別
+                                </label>
+
+                                <select
+                                    id="profile-gender"
+                                    class="input-field"
+                                >
+                                    <option value="">未設定</option>
+                                    <option value="male">男性</option>
+                                    <option value="female">女性</option>
+                                    <option value="other">その他</option>
+                                    <option value="unknown">回答しない</option>
+                                </select>
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="form-label">
+                                    年齢
+                                </label>
+
+                                <input
+                                    id="profile-age"
+                                    type="number"
+                                    min="0"
+                                    max="150"
+                                    class="input-field"
+                                    placeholder="年齢"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="form-label">
+                                    身長（cm）
+                                </label>
+
+                                <input
+                                    id="profile-height"
+                                    type="number"
+                                    step="0.1"
+                                    class="input-field"
+                                    placeholder="170"
+                                >
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="form-label">
+                                    体重（kg）
+                                </label>
+
+                                <input
+                                    id="profile-weight"
+                                    type="number"
+                                    step="0.1"
+                                    class="input-field"
+                                    placeholder="60"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="mt-5 flex justify-end">
+
+                            <button
+                                type="submit"
+                                class="primary-button"
                             >
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                プロフィールを保存
+                            </button>
 
-                        </label>
+                        </div>
+
+                    </form>
+
+                </div>
 
 
-                        <label class="setting-row">
+                <!-- Medical profile -->
 
-                            <span>
-                                <strong>在庫少通知</strong>
-                                <small>2日に1回通知</small>
-                            </span>
+                <div class="content-card mb-6">
 
-                            <input
-                                id="setting-stock-notification"
-                                type="checkbox"
-                                checked
-                                class="toggle-checkbox"
-                            >
+                    <div class="content-card-header">
 
-                        </label>
+                        <div>
+                            <h3 class="font-extrabold text-slate-900">
+                                医療プロフィール
+                            </h3>
+
+                            <p class="mt-1 text-xs text-slate-400">
+                                医療機関で必要になる情報を管理します。
+                            </p>
+                        </div>
 
                     </div>
 
 
-                    <div class="content-card">
+                    <form
+                        id="medical-profile-form"
+                        onsubmit="saveMedicalProfile(event)"
+                    >
 
-                        <h3 class="font-bold text-red-600 mb-4">
-                            アカウント操作
-                        </h3>
+                        <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                            <div>
+
+                                <label class="form-label">
+                                    血液型
+                                </label>
+
+                                <select
+                                    id="medical-blood-type"
+                                    class="input-field"
+                                >
+                                    <option value="">未設定</option>
+                                    <option value="A">A型</option>
+                                    <option value="B">B型</option>
+                                    <option value="O">O型</option>
+                                    <option value="AB">AB型</option>
+                                    <option value="unknown">不明</option>
+                                </select>
+
+                            </div>
+
+
+                            <div>
+
+                                <label class="form-label">
+                                    アレルギー
+                                </label>
+
+                                <input
+                                    id="medical-allergies"
+                                    type="text"
+                                    class="input-field"
+                                    placeholder="例：薬剤アレルギーなし"
+                                >
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="mt-5">
+
+                            <label class="form-label">
+                                既往歴
+                            </label>
+
+                            <textarea
+                                id="medical-history"
+                                class="input-field"
+                                placeholder="これまでの病気・手術など"
+                            ></textarea>
+
+                        </div>
+
+
+                        <div class="mt-5">
+
+                            <label class="form-label">
+                                現在の疾患・症状
+                            </label>
+
+                            <textarea
+                                id="medical-current-conditions"
+                                class="input-field"
+                                placeholder="現在治療中の病気や症状など"
+                            ></textarea>
+
+                        </div>
+
+
+                        <div class="mt-5">
+
+                            <label class="form-label">
+                                メモ
+                            </label>
+
+                            <textarea
+                                id="medical-notes"
+                                class="input-field"
+                                placeholder="その他の医療情報"
+                            ></textarea>
+
+                        </div>
+
+
+                        <div class="mt-5 flex justify-end">
+
+                            <button
+                                type="submit"
+                                class="primary-button"
+                            >
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                保存
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                </div>
+
+
+                <!-- Account -->
+
+                <div class="content-card">
+
+                    <div class="content-card-header">
+
+                        <div>
+                            <h3 class="font-extrabold text-slate-900">
+                                アカウント
+                            </h3>
+                        </div>
+
+                    </div>
+
+
+                    <div class="setting-row">
+
+                        <div>
+                            <strong>メールアドレス</strong>
+                            <small>
+                                ログインに使用しているメールアドレス
+                            </small>
+                        </div>
+
+                        <span
+                            id="account-email"
+                            class="text-sm text-slate-500"
+                        >
+                            --
+                        </span>
+
+                    </div>
+
+
+                    <div class="setting-row">
+
+                        <div>
+                            <strong>ログアウト</strong>
+                            <small>
+                                この端末からログアウトします。
+                            </small>
+                        </div>
 
                         <button
-                            onclick="logout()"
-                            class="w-full text-left px-4 py-3 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition"
+                            class="secondary-button text-red-600"
+                            onclick="handleLogout()"
                         >
-                            <i class="fa-solid fa-right-from-bracket mr-2"></i>
                             ログアウト
                         </button>
 
@@ -1655,21 +2738,24 @@
 
 
 <!-- =========================================================
-     共通モーダル
+     MODAL OVERLAY
 ========================================================= -->
 
 <div
     id="modal-overlay"
-    class="hidden fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+    class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+    onclick="closeModalOnOverlay(event)"
 >
 
     <div
         id="modal-container"
-        class="bg-white rounded-3xl w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl"
+        class="w-full max-w-xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+        onclick="event.stopPropagation()"
     >
 
         <div
             id="modal-content"
+            class="max-h-[90vh] overflow-y-auto"
         ></div>
 
     </div>
@@ -1678,21 +2764,42 @@
 
 
 <!-- =========================================================
-     Toast
+     TOAST CONTAINER
 ========================================================= -->
 
 <div
     id="toast-container"
-    class="fixed right-4 bottom-4 z-[9999] space-y-3"
+    class="fixed bottom-4 right-4 z-[200] flex flex-col gap-3"
 ></div>
 
 
 <!-- =========================================================
-     JavaScript
+     LOADING
+========================================================= -->
+
+<div
+    id="global-loading"
+    class="fixed inset-0 z-[300] hidden items-center justify-center bg-white/80 backdrop-blur-sm"
+>
+
+    <div class="flex flex-col items-center">
+
+        <div class="loading-spinner"></div>
+
+        <div class="mt-4 text-sm font-bold text-slate-600">
+            読み込み中...
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- =========================================================
+     JAVASCRIPT
 ========================================================= -->
 
 <script src="app.js"></script>
 
 </body>
-
 </html>

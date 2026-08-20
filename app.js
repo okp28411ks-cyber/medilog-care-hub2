@@ -1,152 +1,749 @@
-// ============================================================
+// ==================================================
 // まいへるす
-// app.js
-// ============================================================
+// app.js 完成版
+// ==================================================
 
-
-// ============================================================
+// ==================================================
 // ① Supabase設定
-// ============================================================
+// ==================================================
 
-const SUPABASE_URL = "https://ufmcloqjcolpvzhnobgg.supabase.co";
+const SUPABASE_URL =
+    "https://ufmcloqjcolpvzhnobgg.supabase.co";
 
-// Supabase Dashboard
-// Settings → API
-// Publishable key をここへ入れてください
-const SUPABASE_ANON_KEY = "sb_publishable_mxebX3u8pw2XfPGwtzQmyg_aB2fUSWy";
+const SUPABASE_ANON_KEY =
+    "sb_publishable_mxebX3u8pw2XfPGwtzQmyg_aB2fUSWy";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+    );
 
 
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_ANON_KEY
-);
-
-
-// ============================================================
-// ② グローバル状態
-// ============================================================
+// ==================================================
+// ② グローバル変数
+// ==================================================
 
 let currentUser = null;
 let currentProfile = null;
 
 let currentView = "dashboard";
 
-let selectedDmFriend = null;
+let currentChatFriend = null;
 
-let medicationChart = null;
-let classificationChart = null;
+let medications = [];
+let medicationLogs = [];
+let friends = [];
+let friendRequests = [];
 
 
-// ============================================================
-// ③ 初期化
-// ============================================================
+// ==================================================
+// ③ 画面情報
+// ==================================================
+
+const viewInfo = {
+
+    dashboard: {
+        title: "ダッシュボード",
+        subtitle: "今日の健康状態を確認しましょう"
+    },
+
+    medications: {
+        title: "お薬",
+        subtitle: "現在登録されているお薬を管理します"
+    },
+
+    "medication-logs": {
+        title: "服薬記録",
+        subtitle: "服用したお薬を記録・確認できます"
+    },
+
+    health: {
+        title: "健康記録",
+        subtitle: "日々の体調や生活状態を記録します"
+    },
+
+    diagnoses: {
+        title: "診断・病歴",
+        subtitle: "診断された病気や病歴を管理します"
+    },
+
+    visits: {
+        title: "診察記録",
+        subtitle: "病院・クリニックでの診察記録を管理します"
+    },
+
+    appointments: {
+        title: "通院予定",
+        subtitle: "病院・クリニックの予定を管理します"
+    },
+
+    allergies: {
+        title: "アレルギー",
+        subtitle: "薬・食物などのアレルギー情報を管理します"
+    },
+
+    friends: {
+        title: "友達",
+        subtitle: "友達と健康情報を共有できます"
+    },
+
+    messages: {
+        title: "メッセージ",
+        subtitle: "友達と直接メッセージをやり取りできます"
+    },
+
+    notifications: {
+        title: "通知",
+        subtitle: "友達申請や共有などのお知らせを確認できます"
+    },
+
+    settings: {
+        title: "設定",
+        subtitle: "プロフィールやアプリの設定を管理します"
+    }
+
+};
+
+
+// ==================================================
+// ④ DOM読み込み
+// ==================================================
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-    try {
+    console.log("まいへるすを起動しています...");
 
-        await initializeApp();
+    setupAuthEvents();
+    setupLogoutEvents();
 
-    } catch (error) {
-
-        console.error("Initialization error:", error);
-
-        showToast(
-            "アプリの初期化に失敗しました。",
-            "error"
-        );
-
-    }
+    await initializeApp();
 
 });
 
 
-// ============================================================
-// ④ アプリ初期化
-// ============================================================
+// ==================================================
+// ⑤ アプリ初期化
+// ==================================================
 
 async function initializeApp() {
 
-    showLoading(true);
+    try {
+
+        showLoading();
+
+        const {
+            data: {
+                session
+            },
+            error
+        } = await supabaseClient.auth.getSession();
+
+        if (error) {
+            console.error(
+                "セッション取得エラー:",
+                error
+            );
+        }
+
+        if (session && session.user) {
+
+            currentUser = session.user;
+
+            await loadUserProfile();
+
+            showApp();
+
+            await loadInitialData();
+
+        } else {
+
+            showAuth();
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "アプリ初期化エラー:",
+            error
+        );
+
+        showAuth();
+
+    } finally {
+
+        hideLoading();
+
+    }
+
+}
 
 
-    // 現在のログイン状態を確認
+// ==================================================
+// ⑥ Supabase Auth状態監視
+// ==================================================
 
-    const {
-        data,
-        error
-    } = await supabaseClient.auth.getSession();
+supabaseClient.auth.onAuthStateChange(
+    async (event, session) => {
+
+        console.log(
+            "Auth event:",
+            event
+        );
+
+        if (session && session.user) {
+
+            currentUser = session.user;
+
+            if (
+                event === "SIGNED_IN" ||
+                event === "INITIAL_SESSION"
+            ) {
+
+                await loadUserProfile();
+
+                showApp();
+
+                await loadInitialData();
+
+            }
+
+        } else {
+
+            currentUser = null;
+            currentProfile = null;
+
+            showAuth();
+
+        }
+
+    }
+);
 
 
-    if (error) {
+// ==================================================
+// ⑦ 認証画面イベント
+// ==================================================
+
+function setupAuthEvents() {
+
+    const loginForm =
+        document.getElementById(
+            "login-form-element"
+        );
+
+    const registerForm =
+        document.getElementById(
+            "register-form-element"
+        );
+
+    const showRegisterButton =
+        document.getElementById(
+            "show-register-button"
+        );
+
+    const showLoginButton =
+        document.getElementById(
+            "show-login-button"
+        );
+
+
+    if (loginForm) {
+
+        loginForm.addEventListener(
+            "submit",
+            handleLogin
+        );
+
+    }
+
+
+    if (registerForm) {
+
+        registerForm.addEventListener(
+            "submit",
+            handleRegister
+        );
+
+    }
+
+
+    if (showRegisterButton) {
+
+        showRegisterButton.addEventListener(
+            "click",
+            () => {
+
+                document
+                    .getElementById("login-form")
+                    ?.classList.add("hidden");
+
+                document
+                    .getElementById("register-form")
+                    ?.classList.remove("hidden");
+
+            }
+        );
+
+    }
+
+
+    if (showLoginButton) {
+
+        showLoginButton.addEventListener(
+            "click",
+            () => {
+
+                document
+                    .getElementById("register-form")
+                    ?.classList.add("hidden");
+
+                document
+                    .getElementById("login-form")
+                    ?.classList.remove("hidden");
+
+            }
+        );
+
+    }
+
+}
+
+
+// ==================================================
+// ⑧ ログイン
+// ==================================================
+
+async function handleLogin(event) {
+
+    event.preventDefault();
+
+    const email =
+        document
+            .getElementById("login-email")
+            ?.value
+            .trim();
+
+    const password =
+        document
+            .getElementById("login-password")
+            ?.value;
+
+
+    if (!email || !password) {
+
+        showToast(
+            "メールアドレスとパスワードを入力してください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        showLoading();
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient.auth.signInWithPassword({
+                email,
+                password
+            });
+
+
+        if (error) {
+
+            console.error(
+                "ログインエラー:",
+                error
+            );
+
+            showToast(
+                getAuthErrorMessage(error),
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        currentUser =
+            data.user;
+
+
+        await loadUserProfile();
+
+        showApp();
+
+        await loadInitialData();
+
+        showToast(
+            "ログインしました。",
+            "success"
+        );
+
+    } catch (error) {
 
         console.error(error);
 
-        showLoading(false);
+        showToast(
+            "ログイン中にエラーが発生しました。",
+            "error"
+        );
 
-        showAuthScreen();
+    } finally {
+
+        hideLoading();
+
+    }
+
+}
+
+
+// ==================================================
+// ⑨ 会員登録
+// ==================================================
+
+async function handleRegister(event) {
+
+    event.preventDefault();
+
+
+    const username =
+        document
+            .getElementById("register-username")
+            ?.value
+            .trim();
+
+    const email =
+        document
+            .getElementById("register-email")
+            ?.value
+            .trim();
+
+    const password =
+        document
+            .getElementById("register-password")
+            ?.value;
+
+    const passwordConfirm =
+        document
+            .getElementById(
+                "register-password-confirm"
+            )
+            ?.value;
+
+
+    if (
+        !username ||
+        !email ||
+        !password ||
+        !passwordConfirm
+    ) {
+
+        showToast(
+            "すべての項目を入力してください。",
+            "error"
+        );
 
         return;
-    }
-
-
-    if (data.session) {
-
-        currentUser = data.session.user;
-
-        await loadCurrentUser();
-
-        showAppScreen();
-
-    } else {
-
-        showAuthScreen();
 
     }
 
 
-    // 認証状態の変更を監視
+    if (password !== passwordConfirm) {
 
-    supabaseClient.auth.onAuthStateChange(
-        async (event, session) => {
+        showToast(
+            "パスワードが一致していません。",
+            "error"
+        );
 
-            console.log(
-                "Auth event:",
-                event
+        return;
+
+    }
+
+
+    if (password.length < 6) {
+
+        showToast(
+            "パスワードは6文字以上にしてください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    try {
+
+        showLoading();
+
+
+        // ------------------------------------------
+        // ユーザーネーム重複確認
+        // ------------------------------------------
+
+        const {
+            data: existingProfile,
+            error: profileCheckError
+        } =
+            await supabaseClient
+                .from("profiles")
+                .select("id")
+                .eq("username", username)
+                .maybeSingle();
+
+
+        if (profileCheckError) {
+
+            console.error(
+                "ユーザーネーム確認エラー:",
+                profileCheckError
             );
 
+        }
 
-            if (session) {
 
-                currentUser = session.user;
+        if (existingProfile) {
 
-                await loadCurrentUser();
+            showToast(
+                "そのユーザーネームはすでに使用されています。",
+                "error"
+            );
 
-                showAppScreen();
+            return;
 
-            } else {
+        }
 
-                currentUser = null;
 
-                currentProfile = null;
+        // ------------------------------------------
+        // Supabase Auth登録
+        // ------------------------------------------
 
-                showAuthScreen();
+        const {
+            data,
+            error
+        } =
+            await supabaseClient.auth.signUp({
+                email,
+                password
+            });
+
+
+        if (error) {
+
+            console.error(
+                "会員登録エラー:",
+                error
+            );
+
+            showToast(
+                getAuthErrorMessage(error),
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        // ------------------------------------------
+        // セッションが取得できた場合
+        // ------------------------------------------
+
+        if (data.user) {
+
+            currentUser =
+                data.user;
+
+
+            // --------------------------------------
+            // profiles作成
+            // --------------------------------------
+
+            const {
+                error: insertProfileError
+            } =
+                await supabaseClient
+                    .from("profiles")
+                    .upsert(
+                        {
+                            id: data.user.id,
+                            username: username
+                        },
+                        {
+                            onConflict: "id"
+                        }
+                    );
+
+
+            if (insertProfileError) {
+
+                console.error(
+                    "プロフィール作成エラー:",
+                    insertProfileError
+                );
+
+                showToast(
+                    "アカウントは作成されましたが、プロフィールの保存に失敗しました。",
+                    "error"
+                );
+
+                return;
 
             }
 
         }
-    );
 
 
-    showLoading(false);
+        // ------------------------------------------
+        // メール確認が必要な場合
+        // ------------------------------------------
+
+        if (!data.session) {
+
+            showToast(
+                "会員登録が完了しました。確認メールが届いている場合は、メールを確認してからログインしてください。",
+                "success"
+            );
+
+
+            document
+                .getElementById("register-form")
+                ?.classList.add("hidden");
+
+            document
+                .getElementById("login-form")
+                ?.classList.remove("hidden");
+
+
+            const loginEmail =
+                document.getElementById(
+                    "login-email"
+                );
+
+            if (loginEmail) {
+
+                loginEmail.value =
+                    email;
+
+            }
+
+        } else {
+
+            await loadUserProfile();
+
+            showApp();
+
+            await loadInitialData();
+
+            showToast(
+                "会員登録が完了しました。",
+                "success"
+            );
+
+        }
+
+
+    } catch (error) {
+
+        console.error(
+            "登録エラー:",
+            error
+        );
+
+        showToast(
+            "会員登録中にエラーが発生しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideLoading();
+
+    }
+
 }
 
 
-// ============================================================
-// ⑤ 現在ユーザー取得
-// ============================================================
+// ==================================================
+// ⑩ Authエラーメッセージ
+// ==================================================
 
-async function loadCurrentUser() {
+function getAuthErrorMessage(error) {
+
+    const message =
+        String(
+            error?.message || ""
+        ).toLowerCase();
+
+
+    if (
+        message.includes("invalid login credentials")
+    ) {
+
+        return "メールアドレスまたはパスワードが正しくありません。";
+
+    }
+
+
+    if (
+        message.includes("email not confirmed")
+    ) {
+
+        return "メールアドレスの確認が完了していません。確認メールをご確認ください。";
+
+    }
+
+
+    if (
+        message.includes("user already registered")
+    ) {
+
+        return "このメールアドレスはすでに登録されています。";
+
+    }
+
+
+    if (
+        message.includes("password should be at least")
+    ) {
+
+        return "パスワードが短すぎます。";
+
+    }
+
+
+    if (
+        message.includes("rate limit")
+    ) {
+
+        return "メール送信回数の上限に達しています。しばらく時間をおいてください。";
+
+    }
+
+
+    return (
+        error?.message ||
+        "認証処理中にエラーが発生しました。"
+    );
+
+}
+
+
+// ==================================================
+// ⑪ ユーザープロフィール読み込み
+// ==================================================
+
+async function loadUserProfile() {
 
     if (!currentUser) {
         return;
@@ -158,609 +755,36 @@ async function loadCurrentUser() {
         const {
             data,
             error
-        } = await supabaseClient
-            .from("profiles")
-            .select("*")
-            .eq("id", currentUser.id)
-            .maybeSingle();
+        } =
+            await supabaseClient
+                .from("profiles")
+                .select("*")
+                .eq("id", currentUser.id)
+                .maybeSingle();
 
 
         if (error) {
 
             console.error(
-                "Profile load error:",
+                "プロフィール取得エラー:",
                 error
             );
 
             return;
-        }
-
-
-        currentProfile = data;
-
-
-        if (currentProfile) {
-
-            updateUserUI();
 
         }
+
+
+        currentProfile =
+            data || null;
+
+
+        updateUserUI();
 
     } catch (error) {
 
-        console.error(error);
-
-    }
-
-}
-
-
-// ============================================================
-// ⑥ ユーザーUI更新
-// ============================================================
-
-function updateUserUI() {
-
-    if (!currentProfile) {
-        return;
-    }
-
-
-    const username =
-        currentProfile.username ||
-        "ユーザー";
-
-
-    const avatar =
-        document.getElementById(
-            "user-avatar"
-        );
-
-
-    const headerUsername =
-        document.getElementById(
-            "header-username"
-        );
-
-
-    const welcomeUsername =
-        document.getElementById(
-            "welcome-username"
-        );
-
-
-    const settingsUsername =
-        document.getElementById(
-            "settings-username"
-        );
-
-
-    const profileUsername =
-        document.getElementById(
-            "profile-username"
-        );
-
-
-    const settingsEmail =
-        document.getElementById(
-            "settings-email"
-        );
-
-
-    if (avatar) {
-
-        avatar.textContent =
-            username
-                .trim()
-                .charAt(0)
-                .toUpperCase() || "U";
-
-    }
-
-
-    if (headerUsername) {
-
-        headerUsername.textContent =
-            username;
-
-    }
-
-
-    if (welcomeUsername) {
-
-        welcomeUsername.textContent =
-            `${username}さん、今日も健康管理を続けましょう`;
-
-    }
-
-
-    if (settingsUsername) {
-
-        settingsUsername.textContent =
-            username;
-
-    }
-
-
-    if (profileUsername) {
-
-        profileUsername.value =
-            username;
-
-    }
-
-
-    if (settingsEmail) {
-
-        settingsEmail.textContent =
-            currentUser?.email || "-";
-
-    }
-
-
-    // 基本情報
-
-    const gender =
-        document.getElementById(
-            "profile-gender"
-        );
-
-    const age =
-        document.getElementById(
-            "profile-age"
-        );
-
-    const height =
-        document.getElementById(
-            "profile-height"
-        );
-
-    const weight =
-        document.getElementById(
-            "profile-weight"
-        );
-
-
-    if (gender) {
-
-        gender.value =
-            currentProfile.gender || "";
-
-    }
-
-
-    if (age) {
-
-        age.value =
-            currentProfile.age ?? "";
-
-    }
-
-
-    if (height) {
-
-        height.value =
-            currentProfile.height ?? "";
-
-    }
-
-
-    if (weight) {
-
-        weight.value =
-            currentProfile.weight ?? "";
-
-    }
-
-}
-
-
-// ============================================================
-// ⑦ Loading
-// ============================================================
-
-function showLoading(show) {
-
-    const loading =
-        document.getElementById(
-            "loading-screen"
-        );
-
-
-    if (!loading) {
-        return;
-    }
-
-
-    if (show) {
-
-        loading.classList.remove(
-            "hidden"
-        );
-
-    } else {
-
-        loading.classList.add(
-            "hidden"
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// ⑧ 認証画面
-// ============================================================
-
-function showAuthScreen() {
-
-    const auth =
-        document.getElementById(
-            "auth-screen"
-        );
-
-    const app =
-        document.getElementById(
-            "app-screen"
-        );
-
-
-    if (auth) {
-
-        auth.classList.remove(
-            "hidden"
-        );
-
-    }
-
-
-    if (app) {
-
-        app.classList.add(
-            "hidden"
-        );
-
-    }
-
-}
-
-
-function showAppScreen() {
-
-    const auth =
-        document.getElementById(
-            "auth-screen"
-        );
-
-    const app =
-        document.getElementById(
-            "app-screen"
-        );
-
-
-    if (auth) {
-
-        auth.classList.add(
-            "hidden"
-        );
-
-    }
-
-
-    if (app) {
-
-        app.classList.remove(
-            "hidden"
-        );
-
-    }
-
-
-    showView("dashboard");
-
-
-    loadDashboard();
-
-}
-
-
-// ============================================================
-// ⑨ ログイン
-// ============================================================
-
-async function login() {
-
-    const email =
-        document
-            .getElementById("login-email")
-            ?.value
-            .trim();
-
-
-    const password =
-        document
-            .getElementById("login-password")
-            ?.value;
-
-
-    const errorBox =
-        document.getElementById(
-            "login-error"
-        );
-
-
-    if (!email || !password) {
-
-        showAuthError(
-            errorBox,
-            "メールアドレスとパスワードを入力してください。"
-        );
-
-        return;
-    }
-
-
-    setButtonLoading(
-        "login-button",
-        true
-    );
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password
-    });
-
-
-    setButtonLoading(
-        "login-button",
-        false
-    );
-
-
-    if (error) {
-
-        console.error(error);
-
-        showAuthError(
-            errorBox,
-            translateAuthError(
-                error.message
-            )
-        );
-
-        return;
-    }
-
-
-    currentUser =
-        data.user;
-
-
-    await loadCurrentUser();
-
-    showAppScreen();
-
-}
-
-
-// ============================================================
-// ⑩ 会員登録
-// ============================================================
-
-async function register() {
-
-    const email =
-        document
-            .getElementById("register-email")
-            ?.value
-            .trim();
-
-
-    const username =
-        document
-            .getElementById("register-username")
-            ?.value
-            .trim();
-
-
-    const password =
-        document
-            .getElementById("register-password")
-            ?.value;
-
-
-    const errorBox =
-        document.getElementById(
-            "register-error"
-        );
-
-
-    if (!email || !username || !password) {
-
-        showAuthError(
-            errorBox,
-            "すべての項目を入力してください。"
-        );
-
-        return;
-    }
-
-
-    if (username.length < 2) {
-
-        showAuthError(
-            errorBox,
-            "ユーザー名は2文字以上で入力してください。"
-        );
-
-        return;
-    }
-
-
-    if (password.length < 6) {
-
-        showAuthError(
-            errorBox,
-            "パスワードは6文字以上にしてください。"
-        );
-
-        return;
-    }
-
-
-    const {
-        data: existingProfile,
-        error: usernameCheckError
-    } = await supabaseClient
-        .from("profiles")
-        .select("id")
-        .eq("username", username)
-        .maybeSingle();
-
-
-    if (usernameCheckError) {
-
         console.error(
-            usernameCheckError
-        );
-
-        showAuthError(
-            errorBox,
-            "ユーザー名を確認できませんでした。"
-        );
-
-        return;
-    }
-
-
-    if (existingProfile) {
-
-        showAuthError(
-            errorBox,
-            "そのユーザー名はすでに使用されています。"
-        );
-
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient.auth.signUp({
-
-        email,
-
-        password,
-
-        options: {
-
-            data: {
-
-                username
-
-            }
-
-        }
-
-    });
-
-
-    if (error) {
-
-        console.error(error);
-
-        showAuthError(
-            errorBox,
-            translateAuthError(
-                error.message
-            )
-        );
-
-        return;
-    }
-
-
-    /*
-        Supabase側でメール確認が有効の場合、
-        sessionがnullになる場合があります。
-    */
-
-
-    if (!data.user) {
-
-        showAuthError(
-            errorBox,
-            "登録に失敗しました。"
-        );
-
-        return;
-    }
-
-
-    // セッションがある場合はprofilesを作成
-
-    if (data.session) {
-
-        await createProfile(
-            data.user.id,
-            username
-        );
-
-        currentUser =
-            data.user;
-
-        await loadCurrentUser();
-
-        showAppScreen();
-
-        showToast(
-            "会員登録が完了しました。",
-            "success"
-        );
-
-    } else {
-
-        showAuthError(
-            errorBox,
-            "登録しました。メールアドレスに確認メールが届いている場合は、メールを確認してからログインしてください。"
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// ⑪ profiles作成
-// ============================================================
-
-async function createProfile(
-    userId,
-    username
-) {
-
-    const {
-        error
-    } = await supabaseClient
-        .from("profiles")
-        .upsert({
-
-            id: userId,
-
-            username: username
-
-        });
-
-
-    if (error) {
-
-        console.error(
-            "Profile creation error:",
+            "プロフィール読み込みエラー:",
             error
         );
 
@@ -769,252 +793,261 @@ async function createProfile(
 }
 
 
-// ============================================================
-// ⑫ ログアウト
-// ============================================================
+// ==================================================
+// ⑫ ユーザーUI更新
+// ==================================================
 
-async function logout() {
+function updateUserUI() {
 
-    const confirmed =
-        confirm(
-            "ログアウトしますか？"
+    if (!currentUser) {
+        return;
+    }
+
+
+    const username =
+        currentProfile?.username ||
+        "ユーザー";
+
+
+    const email =
+        currentUser.email ||
+        "-";
+
+
+    // Sidebar
+
+    setText(
+        "sidebar-username",
+        username
+    );
+
+    setText(
+        "sidebar-email",
+        email
+    );
+
+
+    // Header
+
+    setText(
+        "header-username",
+        username
+    );
+
+
+    setAvatar(
+        "header-avatar",
+        username
+    );
+
+
+    setAvatar(
+        "sidebar-avatar",
+        username
+    );
+
+
+    setAvatar(
+        "settings-avatar",
+        username
+    );
+
+
+    // Settings
+
+    setText(
+        "settings-email",
+        email
+    );
+
+    setText(
+        "account-email",
+        email
+    );
+
+
+    const profileUsername =
+        document.getElementById(
+            "profile-username"
         );
 
+    if (profileUsername) {
 
-    if (!confirmed) {
-        return;
+        profileUsername.value =
+            currentProfile?.username || "";
+
     }
 
 
-    const {
-        error
-    } = await supabaseClient.auth.signOut();
-
-
-    if (error) {
-
-        console.error(error);
-
-        showToast(
-            "ログアウトに失敗しました。",
-            "error"
+    const displayName =
+        document.getElementById(
+            "profile-display-name"
         );
 
+    if (displayName) {
+
+        displayName.value =
+            currentProfile?.display_name || "";
+
+    }
+
+
+    const gender =
+        document.getElementById(
+            "profile-gender"
+        );
+
+    if (gender) {
+
+        gender.value =
+            currentProfile?.gender || "";
+
+    }
+
+
+    const age =
+        document.getElementById(
+            "profile-age"
+        );
+
+    if (age) {
+
+        age.value =
+            currentProfile?.age ?? "";
+
+    }
+
+
+    const height =
+        document.getElementById(
+            "profile-height"
+        );
+
+    if (height) {
+
+        height.value =
+            currentProfile?.height ?? "";
+
+    }
+
+
+    const weight =
+        document.getElementById(
+            "profile-weight"
+        );
+
+    if (weight) {
+
+        weight.value =
+            currentProfile?.weight ?? "";
+
+    }
+
+}
+
+
+// ==================================================
+// ⑬ 初期データ読み込み
+// ==================================================
+
+async function loadInitialData() {
+
+    if (!currentUser) {
         return;
     }
 
 
-    currentUser = null;
-    currentProfile = null;
+    try {
 
-}
+        await Promise.all([
 
+            loadMedications(),
 
-// ============================================================
-// ⑬ 認証フォーム切り替え
-// ============================================================
+            loadMedicationLogs(),
 
-function showRegisterForm() {
+            loadFriends(),
 
-    document
-        .getElementById("login-form")
-        ?.classList
-        .add("hidden");
+            loadFriendRequests(),
 
+            loadAppointments(),
 
-    document
-        .getElementById("register-form")
-        ?.classList
-        .remove("hidden");
+            loadNotifications(),
 
-}
+            loadHealthRecords()
+
+        ]);
 
 
-function showLoginForm() {
+        updateDashboard();
 
-    document
-        .getElementById("register-form")
-        ?.classList
-        .add("hidden");
+    } catch (error) {
 
+        console.error(
+            "初期データ読み込みエラー:",
+            error
+        );
 
-    document
-        .getElementById("login-form")
-        ?.classList
-        .remove("hidden");
-
-}
-
-
-// ============================================================
-// ⑭ 認証エラー
-// ============================================================
-
-function showAuthError(
-    element,
-    message
-) {
-
-    if (!element) {
-        return;
     }
 
-
-    element.textContent =
-        message;
+}
 
 
-    element.classList.remove(
-        "hidden"
+// ==================================================
+// ⑭ アプリ表示
+// ==================================================
+
+function showApp() {
+
+    document
+        .getElementById("auth-screen")
+        ?.classList.add("hidden");
+
+
+    document
+        .getElementById("app")
+        ?.classList.remove("hidden");
+
+
+    document
+        .getElementById("app-container")
+        ?.classList.remove("hidden");
+
+
+    showView(
+        currentView || "dashboard"
     );
 
 }
 
 
-function translateAuthError(
-    message
-) {
+// ==================================================
+// ⑮ 認証画面表示
+// ==================================================
 
-    if (!message) {
+function showAuth() {
 
-        return "エラーが発生しました。";
-
-    }
-
-
-    const lower =
-        message.toLowerCase();
+    document
+        .getElementById("app")
+        ?.classList.add("hidden");
 
 
-    if (
-        lower.includes(
-            "invalid login credentials"
-        )
-    ) {
-
-        return "メールアドレスまたはパスワードが正しくありません。";
-
-    }
+    document
+        .getElementById("app-container")
+        ?.classList.add("hidden");
 
 
-    if (
-        lower.includes(
-            "email not confirmed"
-        )
-    ) {
-
-        return "メールアドレスの確認が完了していません。確認メールをご確認ください。";
-
-    }
-
-
-    if (
-        lower.includes(
-            "user already registered"
-        )
-    ) {
-
-        return "このメールアドレスはすでに登録されています。";
-
-    }
-
-
-    if (
-        lower.includes(
-            "password"
-        ) &&
-        lower.includes(
-            "6"
-        )
-    ) {
-
-        return "パスワードは6文字以上にしてください。";
-
-    }
-
-
-    return message;
+    document
+        .getElementById("auth-screen")
+        ?.classList.remove("hidden");
 
 }
 
 
-// ============================================================
-// ⑮ Button loading
-// ============================================================
-
-function setButtonLoading(
-    buttonId,
-    loading
-) {
-
-    const button =
-        document.getElementById(
-            buttonId
-        );
-
-
-    if (!button) {
-        return;
-    }
-
-
-    if (loading) {
-
-        button.disabled = true;
-
-        button.dataset.originalText =
-            button.innerHTML;
-
-        button.innerHTML =
-            `
-                <i class="fa-solid fa-spinner fa-spin mr-2"></i>
-                処理中...
-            `;
-
-    } else {
-
-        button.disabled = false;
-
-        if (
-            button.dataset.originalText
-        ) {
-
-            button.innerHTML =
-                button.dataset.originalText;
-
-        }
-
-    }
-
-}
-
-
-// ============================================================
-// ⑯ View切り替え
-// ============================================================
+// ==================================================
+// ⑯ 画面切り替え
+// ==================================================
 
 function showView(viewName) {
-
-    currentView =
-        viewName;
-
-
-    const sections =
-        document.querySelectorAll(
-            ".view-section"
-        );
-
-
-    sections.forEach(
-        section => {
-
-            section.classList.add(
-                "hidden"
-            );
-
-        }
-    );
-
 
     const target =
         document.getElementById(
@@ -1022,23 +1055,42 @@ function showView(viewName) {
         );
 
 
-    if (target) {
+    if (!target) {
 
-        target.classList.remove(
-            "hidden"
+        console.warn(
+            `view-${viewName} が見つかりません`
         );
+
+        return;
 
     }
 
 
-    const navButtons =
-        document.querySelectorAll(
-            ".nav-btn"
-        );
+    currentView =
+        viewName;
 
 
-    navButtons.forEach(
-        button => {
+    // 全Viewを非表示
+
+    document
+        .querySelectorAll(".view-section")
+        .forEach(section => {
+
+            section.classList.add("hidden");
+
+        });
+
+
+    // 対象Viewを表示
+
+    target.classList.remove("hidden");
+
+
+    // ナビゲーション状態
+
+    document
+        .querySelectorAll(".nav-btn")
+        .forEach(button => {
 
             button.classList.remove(
                 "active"
@@ -1056,201 +1108,114 @@ function showView(viewName) {
 
             }
 
-        }
-    );
+        });
 
 
-    updatePageHeader(
-        viewName
-    );
+    // タイトル
+
+    const info =
+        viewInfo[viewName];
 
 
-    // 各画面のデータ読み込み
+    if (info) {
 
-    switch (viewName) {
+        setText(
+            "page-title",
+            info.title
+        );
 
-        case "dashboard":
-            loadDashboard();
-            break;
-
-        case "health":
-            loadHealthRecords();
-            break;
-
-        case "medications":
-            loadMedications();
-            break;
-
-        case "medication-logs":
-            loadMedicationLogs();
-            break;
-
-        case "reminders":
-            loadReminders();
-            break;
-
-        case "statistics":
-            loadStatistics();
-            break;
-
-        case "profile":
-            loadProfile();
-            break;
-
-        case "records":
-            loadPersonalRecords();
-            break;
-
-        case "appointments":
-            loadAppointments();
-            break;
-
-        case "friends":
-            loadFriends();
-            break;
-
-        case "messages":
-            loadDmFriends();
-            break;
-
-        case "notifications":
-            loadNotifications();
-            break;
-
-        case "settings":
-            loadSettings();
-            break;
+        setText(
+            "page-subtitle",
+            info.subtitle
+        );
 
     }
 
 
-    closeMobileSidebar();
+    // モバイルメニューを閉じる
 
-}
-
-
-// ============================================================
-// ⑰ ページタイトル
-// ============================================================
-
-function updatePageHeader(
-    viewName
-) {
-
-    const titles = {
-
-        dashboard: [
-            "ホーム",
-            "今日の健康状態を確認しましょう"
-        ],
-
-        health: [
-            "体調管理",
-            "毎日の体調を記録しましょう"
-        ],
-
-        medications: [
-            "おくすり在庫",
-            "おくすりの在庫を管理します"
-        ],
-
-        "medication-logs": [
-            "服薬記録",
-            "服用したおくすりを記録します"
-        ],
-
-        reminders: [
-            "服薬アラーム",
-            "服薬時間を管理します"
-        ],
-
-        statistics: [
-            "統計",
-            "服薬状況を確認します"
-        ],
-
-        profile: [
-            "基本情報",
-            "あなたの基本情報を管理します"
-        ],
-
-        records: [
-            "自身記録",
-            "健康・医療情報を管理します"
-        ],
-
-        appointments: [
-            "通院予定",
-            "次回の通院を管理します"
-        ],
-
-        friends: [
-            "フレンド",
-            "フレンドを管理します"
-        ],
-
-        messages: [
-            "DM",
-            "フレンドとメッセージをやり取りします"
-        ],
-
-        notifications: [
-            "通知",
-            "重要なお知らせを確認します"
-        ],
-
-        settings: [
-            "設定",
-            "アプリの設定を管理します"
-        ]
-
-    };
+    closeMobileMenu();
 
 
-    const data =
-        titles[viewName] ||
-        titles.dashboard;
+    // Viewごとの更新
 
+    if (viewName === "dashboard") {
 
-    const title =
-        document.getElementById(
-            "page-title"
-        );
-
-
-    const subtitle =
-        document.getElementById(
-            "page-subtitle"
-        );
-
-
-    if (title) {
-
-        title.textContent =
-            data[0];
+        updateDashboard();
 
     }
 
 
-    if (subtitle) {
+    if (viewName === "medications") {
 
-        subtitle.textContent =
-            data[1];
+        renderMedications();
+
+    }
+
+
+    if (viewName === "medication-logs") {
+
+        renderMedicationLogs();
+
+    }
+
+
+    if (viewName === "friends") {
+
+        renderFriends();
+
+        renderFriendRequests();
+
+    }
+
+
+    if (viewName === "notifications") {
+
+        renderNotifications();
+
+    }
+
+
+    if (viewName === "messages") {
+
+        loadMessageFriends();
+
+    }
+
+
+    if (viewName === "appointments") {
+
+        renderAppointments();
+
+    }
+
+
+    if (viewName === "health") {
+
+        renderHealthRecords();
 
     }
 
 }
 
 
-// ============================================================
-// ⑱ Mobile sidebar
-// ============================================================
+// ==================================================
+// ⑰ モバイルメニュー
+// ==================================================
 
-function toggleSidebar() {
+function toggleMobileMenu() {
 
     const sidebar =
         document.getElementById(
             "sidebar"
+        );
+
+    const overlay =
+        document.getElementById(
+            "mobile-overlay"
+        ) ||
+        document.getElementById(
+            "sidebar-overlay"
         );
 
 
@@ -1258,14 +1223,27 @@ function toggleSidebar() {
         "mobile-open"
     );
 
+
+    overlay?.classList.toggle(
+        "hidden"
+    );
+
 }
 
 
-function closeMobileSidebar() {
+function closeMobileMenu() {
 
     const sidebar =
         document.getElementById(
             "sidebar"
+        );
+
+    const overlay =
+        document.getElementById(
+            "mobile-overlay"
+        ) ||
+        document.getElementById(
+            "sidebar-overlay"
         );
 
 
@@ -1273,14 +1251,521 @@ function closeMobileSidebar() {
         "mobile-open"
     );
 
+    overlay?.classList.add(
+        "hidden"
+    );
+
 }
 
 
-// ============================================================
-// ⑲ Profile保存
-// ============================================================
+// ==================================================
+// ⑱ ログアウト
+// ==================================================
 
-async function saveProfile() {
+function setupLogoutEvents() {
+
+    const logoutButton =
+        document.getElementById(
+            "logout-button"
+        );
+
+
+    if (logoutButton) {
+
+        logoutButton.addEventListener(
+            "click",
+            handleLogout
+        );
+
+    }
+
+}
+
+
+async function handleLogout() {
+
+    const confirmed =
+        confirm(
+            "ログアウトしますか？"
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    try {
+
+        showLoading();
+
+
+        const {
+            error
+        } =
+            await supabaseClient.auth.signOut();
+
+
+        if (error) {
+
+            console.error(
+                "ログアウトエラー:",
+                error
+            );
+
+            showToast(
+                "ログアウトに失敗しました。",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        currentUser = null;
+        currentProfile = null;
+
+        medications = [];
+        medicationLogs = [];
+        friends = [];
+        friendRequests = [];
+
+        showAuth();
+
+        showToast(
+            "ログアウトしました。",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showToast(
+            "ログアウト中にエラーが発生しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideLoading();
+
+    }
+
+}
+
+
+// ==================================================
+// ⑲ お薬読み込み
+// ==================================================
+
+async function loadMedications() {
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    try {
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .from("medications")
+                .select("*")
+                .eq(
+                    "user_id",
+                    currentUser.id
+                )
+                .order(
+                    "created_at",
+                    {
+                        ascending: false
+                    }
+                );
+
+
+        if (error) {
+
+            console.error(
+                "お薬取得エラー:",
+                error
+            );
+
+            medications = [];
+
+            renderMedications();
+
+            return;
+
+        }
+
+
+        medications =
+            data || [];
+
+
+        renderMedications();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(
+            "お薬読み込みエラー:",
+            error
+        );
+
+    }
+
+}
+
+
+// ==================================================
+// ⑳ お薬表示
+// ==================================================
+
+function renderMedications() {
+
+    const container =
+        document.getElementById(
+            "medications-list"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    if (!medications.length) {
+
+        container.innerHTML = `
+
+            <div class="content-card sm:col-span-2 xl:col-span-3">
+
+                <div class="empty-state">
+
+                    <i class="fa-solid fa-pills"></i>
+
+                    <p>
+                        登録されているお薬はありません
+                    </p>
+
+                    <button
+                        class="primary-button mt-4"
+                        onclick="openMedicationModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        お薬を登録
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    container.innerHTML =
+        medications
+            .map(
+                medication =>
+                    createMedicationCard(
+                        medication
+                    )
+            )
+            .join("");
+
+}
+
+
+// ==================================================
+// ㉑ お薬カード
+// ==================================================
+
+function createMedicationCard(
+    medication
+) {
+
+    const name =
+        escapeHtml(
+            medication.name ||
+            "名称未設定"
+        );
+
+
+    const dosage =
+        escapeHtml(
+            medication.dosage ||
+            ""
+        );
+
+
+    const frequency =
+        escapeHtml(
+            medication.frequency ||
+            ""
+        );
+
+
+    const notes =
+        escapeHtml(
+            medication.notes ||
+            ""
+        );
+
+
+    return `
+
+        <div class="content-card">
+
+            <div class="flex items-start justify-between gap-3">
+
+                <div class="flex items-center gap-3">
+
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+
+                        <i class="fa-solid fa-pills"></i>
+
+                    </div>
+
+                    <div class="min-w-0">
+
+                        <h3 class="font-extrabold text-slate-900 break-words">
+
+                            ${name}
+
+                        </h3>
+
+                        ${
+                            dosage
+                                ? `
+                                <p class="mt-1 text-xs text-slate-400">
+                                    ${dosage}
+                                </p>
+                                `
+                                : ""
+                        }
+
+                    </div>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500"
+                    onclick="deleteMedication('${medication.id}')"
+                    title="削除"
+                >
+
+                    <i class="fa-solid fa-trash"></i>
+
+                </button>
+
+            </div>
+
+
+            ${
+                frequency
+                    ? `
+                    <div class="mt-4 rounded-xl bg-slate-50 p-3">
+
+                        <div class="text-[11px] font-bold text-slate-400">
+                            服用方法
+                        </div>
+
+                        <div class="mt-1 text-sm text-slate-700">
+                            ${frequency}
+                        </div>
+
+                    </div>
+                    `
+                    : ""
+            }
+
+
+            ${
+                notes
+                    ? `
+                    <div class="mt-3">
+
+                        <div class="text-[11px] font-bold text-slate-400">
+                            メモ
+                        </div>
+
+                        <div class="mt-1 text-sm text-slate-600 whitespace-pre-wrap">
+                            ${notes}
+                        </div>
+
+                    </div>
+                    `
+                    : ""
+            }
+
+        </div>
+
+    `;
+
+}
+
+
+// ==================================================
+// ㉒ お薬登録モーダル
+// ==================================================
+
+function openMedicationModal() {
+
+    openModal(`
+
+        <div class="p-6">
+
+            <div class="mb-6 flex items-start justify-between">
+
+                <div>
+
+                    <h2 class="text-xl font-extrabold text-slate-900">
+                        お薬を登録
+                    </h2>
+
+                    <p class="mt-1 text-xs text-slate-400">
+                        現在使用しているお薬を登録します。
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"
+                    onclick="closeModal()"
+                >
+
+                    <i class="fa-solid fa-xmark"></i>
+
+                </button>
+
+            </div>
+
+
+            <form
+                id="medication-form"
+                onsubmit="saveMedication(event)"
+            >
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        お薬の名前
+                    </label>
+
+                    <input
+                        id="medication-name"
+                        type="text"
+                        class="input-field"
+                        placeholder="例：ロキソニン"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        用量
+                    </label>
+
+                    <input
+                        id="medication-dosage"
+                        type="text"
+                        class="input-field"
+                        placeholder="例：60mg"
+                    >
+
+                </div>
+
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        服用方法
+                    </label>
+
+                    <input
+                        id="medication-frequency"
+                        type="text"
+                        class="input-field"
+                        placeholder="例：1日3回 食後"
+                    >
+
+                </div>
+
+
+                <div class="mb-5">
+
+                    <label class="form-label">
+                        メモ
+                    </label>
+
+                    <textarea
+                        id="medication-notes"
+                        class="input-field"
+                        rows="4"
+                        placeholder="その他のメモ"
+                    ></textarea>
+
+                </div>
+
+
+                <div class="flex justify-end gap-2">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        onclick="closeModal()"
+                    >
+                        キャンセル
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+
+                        <i class="fa-solid fa-floppy-disk"></i>
+
+                        登録する
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    `);
+
+}
+
+
+// ==================================================
+// ㉓ お薬保存
+// ==================================================
+
+async function saveMedication(event) {
+
+    event.preventDefault();
+
 
     if (!currentUser) {
 
@@ -1290,1842 +1775,138 @@ async function saveProfile() {
         );
 
         return;
+
     }
 
 
-    const username =
+    const name =
         document
             .getElementById(
-                "profile-username"
+                "medication-name"
             )
             ?.value
             .trim();
 
 
-    const gender =
-        document.getElementById(
-            "profile-gender"
-        )?.value;
+    const dosage =
+        document
+            .getElementById(
+                "medication-dosage"
+            )
+            ?.value
+            .trim();
 
 
-    const age =
-        document.getElementById(
-            "profile-age"
-        )?.value;
+    const frequency =
+        document
+            .getElementById(
+                "medication-frequency"
+            )
+            ?.value
+            .trim();
 
 
-    const height =
-        document.getElementById(
-            "profile-height"
-        )?.value;
+    const notes =
+        document
+            .getElementById(
+                "medication-notes"
+            )
+            ?.value
+            .trim();
 
 
-    const weight =
-        document.getElementById(
-            "profile-weight"
-        )?.value;
-
-
-    if (!username) {
+    if (!name) {
 
         showToast(
-            "ユーザー名を入力してください。",
+            "お薬の名前を入力してください。",
             "error"
         );
 
         return;
-    }
-
-
-    const {
-        error
-    } = await supabaseClient
-        .from("profiles")
-        .update({
-
-            username,
-
-            gender:
-                gender || null,
-
-            age:
-                age
-                    ? Number(age)
-                    : null,
-
-            height:
-                height
-                    ? Number(height)
-                    : null,
-
-            weight:
-                weight
-                    ? Number(weight)
-                    : null
-
-        })
-        .eq(
-            "id",
-            currentUser.id
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        showToast(
-            "基本情報の保存に失敗しました。",
-            "error"
-        );
-
-        return;
-    }
-
-
-    await loadCurrentUser();
-
-
-    showToast(
-        "基本情報を保存しました。",
-        "success"
-    );
-
-}
-
-
-// ============================================================
-// ⑳ Profile読み込み
-// ============================================================
-
-async function loadProfile() {
-
-    if (!currentUser) {
-        return;
-    }
-
-
-    await loadCurrentUser();
-
-}
-
-
-// ============================================================
-// ㉑ Settings
-// ============================================================
-
-function loadSettings() {
-
-    updateUserUI();
-
-}
-
-
-// ============================================================
-// ㉒ Dashboard
-// ============================================================
-
-async function loadDashboard() {
-
-    if (!currentUser) {
-        return;
-    }
-
-
-    await Promise.all([
-
-        loadDashboardMedicationCount(),
-
-        loadDashboardTodayMedicationCount(),
-
-        loadDashboardFriendCount(),
-
-        loadDashboardLowStock(),
-
-        loadDashboardAppointment()
-
-    ]);
-
-}
-
-
-// ============================================================
-// ㉓ 薬数
-// ============================================================
-
-async function loadDashboardMedicationCount() {
-
-    const {
-        count,
-        error
-    } = await supabaseClient
-        .from("medications")
-        .select(
-            "id",
-            {
-                count: "exact",
-                head: true
-            }
-        )
-        .eq(
-            "user_id",
-            currentUser.id
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    setText(
-        "dashboard-medication-count",
-        count ?? 0
-    );
-
-}
-
-
-// ============================================================
-// ㉔ 今日の服薬数
-// ============================================================
-
-async function loadDashboardTodayMedicationCount() {
-
-    const now =
-        new Date();
-
-
-    const start =
-        new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate()
-        );
-
-
-    const end =
-        new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate() + 1
-        );
-
-
-    const {
-        count,
-        error
-    } = await supabaseClient
-        .from("medication_logs")
-        .select(
-            "id",
-            {
-                count: "exact",
-                head: true
-            }
-        )
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .gte(
-            "taken_at",
-            start.toISOString()
-        )
-        .lt(
-            "taken_at",
-            end.toISOString()
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    setText(
-        "dashboard-today-medications",
-        count ?? 0
-    );
-
-}
-
-
-// ============================================================
-// ㉕ フレンド数
-// ============================================================
-
-async function loadDashboardFriendCount() {
-
-    const {
-        count,
-        error
-    } = await supabaseClient
-        .from("friends")
-        .select(
-            "id",
-            {
-                count: "exact",
-                head: true
-            }
-        )
-        .or(
-            `user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    setText(
-        "dashboard-friend-count",
-        count ?? 0
-    );
-
-}
-
-
-// ============================================================
-// ㉖ 在庫少
-// ============================================================
-
-async function loadDashboardLowStock() {
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("medications")
-        .select(
-            "stock, low_stock_threshold"
-        )
-        .eq(
-            "user_id",
-            currentUser.id
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    const lowStock =
-        (data || []).filter(
-            medication =>
-                Number(
-                    medication.stock ?? 0
-                ) <=
-                Number(
-                    medication.low_stock_threshold ?? 5
-                )
-        );
-
-
-    setText(
-        "dashboard-low-stock-count",
-        lowStock.length
-    );
-
-}
-
-
-// ============================================================
-// ㉗ 次回通院
-// ============================================================
-
-async function loadDashboardAppointment() {
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("next_appointments")
-        .select("*")
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .gte(
-            "appointment_at",
-            new Date().toISOString()
-        )
-        .order(
-            "appointment_at",
-            {
-                ascending: true
-            }
-        )
-        .limit(1)
-        .maybeSingle();
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    const container =
-        document.getElementById(
-            "dashboard-appointment"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    if (!data) {
-
-        container.innerHTML =
-            `
-            <div class="empty-state">
-                <i class="fa-solid fa-hospital"></i>
-                <p>次回の通院予定はありません</p>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    const date =
-        new Date(
-            data.appointment_at
-        );
-
-
-    container.innerHTML =
-        `
-        <div class="appointment-card">
-
-            <div class="appointment-date">
-
-                <span class="appointment-date-day">
-                    ${date.getDate()}
-                </span>
-
-                <span class="appointment-date-month">
-                    ${date.getMonth() + 1}月
-                </span>
-
-            </div>
-
-            <div>
-
-                <div class="font-bold text-slate-800">
-                    ${escapeHtml(
-                        data.hospital_name ||
-                        "医療機関"
-                    )}
-                </div>
-
-                <div class="text-sm text-slate-500 mt-1">
-                    ${escapeHtml(
-                        data.department ||
-                        ""
-                    )}
-                </div>
-
-                <div class="text-xs text-slate-400 mt-2">
-                    ${formatDateTime(
-                        data.appointment_at
-                    )}
-                </div>
-
-            </div>
-
-        </div>
-        `;
-
-}
-
-
-// ============================================================
-// ㉘ 体調管理
-// ============================================================
-
-async function loadHealthRecords() {
-
-    const container =
-        document.getElementById(
-            "health-records-container"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    if (!currentUser) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("health_records")
-        .select("*")
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .order(
-            "recorded_at",
-            {
-                ascending: false
-            }
-        )
-        .limit(30);
-
-
-    if (error) {
-
-        console.error(error);
-
-        container.innerHTML =
-            `
-            <div class="content-card text-red-500">
-                体調記録を読み込めませんでした。
-            </div>
-            `;
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
-            <div class="content-card">
-                <div class="empty-state">
-                    <i class="fa-solid fa-heart-pulse"></i>
-                    <p>まだ体調記録がありません。</p>
-                </div>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        data.map(
-            record =>
-                renderHealthRecord(
-                    record
-                )
-        ).join("");
-
-}
-
-
-// ============================================================
-// ㉙ 体調記録表示
-// ============================================================
-
-function renderHealthRecord(
-    record
-) {
-
-    return `
-        <div class="health-record-card">
-
-            <div class="flex items-center justify-between mb-4">
-
-                <div>
-                    <div class="font-bold text-slate-800">
-                        ${formatDate(
-                            record.recorded_at
-                        )}
-                    </div>
-
-                    <div class="text-xs text-slate-400 mt-1">
-                        ${formatDateTime(
-                            record.recorded_at
-                        )}
-                    </div>
-                </div>
-
-            </div>
-
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-
-                ${healthMetric(
-                    "朝の血圧",
-                    formatBloodPressure(
-                        record.morning_systolic,
-                        record.morning_diastolic
-                    )
-                )}
-
-                ${healthMetric(
-                    "昼の血圧",
-                    formatBloodPressure(
-                        record.noon_systolic,
-                        record.noon_diastolic
-                    )
-                )}
-
-                ${healthMetric(
-                    "夜の血圧",
-                    formatBloodPressure(
-                        record.evening_systolic,
-                        record.evening_diastolic
-                    )
-                )}
-
-                ${healthMetric(
-                    "こころの状態",
-                    record.mood ||
-                    "-"
-                )}
-
-            </div>
-
-
-            ${
-                record.diary
-                    ? `
-                    <div class="mt-4 p-4 rounded-xl bg-slate-50">
-                        <div class="text-xs text-slate-400 mb-1">
-                            プチ日記
-                        </div>
-                        <div class="text-sm text-slate-600 whitespace-pre-wrap">
-                            ${escapeHtml(
-                                record.diary
-                            )}
-                        </div>
-                    </div>
-                    `
-                    : ""
-            }
-
-        </div>
-    `;
-
-}
-
-
-// ============================================================
-// ㉚ おくすり
-// ============================================================
-
-async function loadMedications() {
-
-    const container =
-        document.getElementById(
-            "medications-container"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("medications")
-        .select("*")
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .order(
-            "created_at",
-            {
-                ascending: false
-            }
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        container.innerHTML =
-            `
-            <div class="content-card text-red-500 md:col-span-2 xl:col-span-3">
-                おくすりを読み込めませんでした。
-            </div>
-            `;
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
-            <div class="content-card md:col-span-2 xl:col-span-3">
-
-                <div class="empty-state">
-
-                    <i class="fa-solid fa-pills"></i>
-
-                    <p>
-                        おくすりが登録されていません。
-                    </p>
-
-                </div>
-
-            </div>
-            `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        data.map(
-            medication =>
-                renderMedicationCard(
-                    medication
-                )
-        ).join("");
-
-}
-
-
-// ============================================================
-// ㉛ 薬カード
-// ============================================================
-
-function renderMedicationCard(
-    medication
-) {
-
-    const stock =
-        Number(
-            medication.stock ?? 0
-        );
-
-
-    const threshold =
-        Number(
-            medication.low_stock_threshold ?? 5
-        );
-
-
-    const percentage =
-        Math.min(
-            100,
-            Math.max(
-                5,
-                threshold > 0
-                    ? (
-                        stock /
-                        Math.max(
-                            threshold * 2,
-                            10
-                        )
-                    ) * 100
-                    : 100
-            )
-        );
-
-
-    let stockClass =
-        "stock-normal";
-
-
-    if (stock <= threshold) {
-
-        stockClass =
-            "stock-danger";
-
-    } else if (
-        stock <= threshold * 2
-    ) {
-
-        stockClass =
-            "stock-warning";
 
     }
 
 
-    return `
-        <div class="medication-card">
+    try {
 
-            <div class="medication-photo">
-
-                ${
-                    medication.photo_url
-                        ? `
-                        <img
-                            src="${escapeAttribute(
-                                medication.photo_url
-                            )}"
-                            alt="${escapeAttribute(
-                                medication.name
-                            )}"
-                        >
-                        `
-                        : `
-                        <div class="medication-photo-placeholder">
-                            <i class="fa-solid fa-pills"></i>
-                        </div>
-                        `
-                }
-
-            </div>
-
-
-            <div class="medication-card-body">
-
-                <div class="flex items-start justify-between gap-3">
-
-                    <div>
-
-                        <div class="medication-name">
-                            ${escapeHtml(
-                                medication.name
-                            )}
-                        </div>
-
-                        <div class="medication-strength">
-                            ${
-                                medication.strength
-                                    ? `${medication.strength}${medication.unit || "mg"}`
-                                    : ""
-                            }
-                        </div>
-
-                    </div>
-
-
-                    <span class="status-badge ${
-                        medication.status ===
-                        "服用中"
-                            ? "status-active"
-                            : medication.status ===
-                              "休止中"
-                            ? "status-paused"
-                            : "status-stopped"
-                    }">
-
-                        ${escapeHtml(
-                            medication.status ||
-                            "服用中"
-                        )}
-
-                    </span>
-
-                </div>
-
-
-                <div class="mt-5">
-
-                    <div class="flex justify-between text-xs">
-
-                        <span class="text-slate-400">
-                            在庫
-                        </span>
-
-                        <span class="font-bold ${
-                            stock <= threshold
-                                ? "text-red-500"
-                                : "text-slate-700"
-                        }">
-
-                            ${stock}
-                            ${escapeHtml(
-                                medication.unit ||
-                                "錠"
-                            )}
-
-                        </span>
-
-                    </div>
-
-
-                    <div class="stock-bar">
-
-                        <div
-                            class="stock-bar-fill ${stockClass}"
-                            style="width:${percentage}%"
-                        ></div>
-
-                    </div>
-
-                </div>
-
-
-                <div class="flex gap-2 mt-5">
-
-                    <button
-                        onclick="openMedicationLogModal('${medication.id}')"
-                        class="secondary-button flex-1"
-                    >
-                        <i class="fa-solid fa-check"></i>
-                        服薬
-                    </button>
-
-                    <button
-                        onclick="editMedication('${medication.id}')"
-                        class="secondary-button"
-                    >
-                        <i class="fa-solid fa-pen"></i>
-                    </button>
-
-                </div>
-
-            </div>
-
-        </div>
-    `;
-
-}
-
-
-// ============================================================
-// ㉜ 服薬記録
-// ============================================================
-
-async function loadMedicationLogs() {
-
-    const container =
-        document.getElementById(
-            "medication-logs-container"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("medication_logs")
-        .select(
-            `
-            *,
-            medications (
-                name,
-                strength,
-                unit
-            )
-            `
-        )
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .order(
-            "taken_at",
-            {
-                ascending: false
-            }
-        )
-        .limit(100);
-
-
-    if (error) {
-
-        console.error(error);
-
-        container.innerHTML =
-            `
-            <div class="text-red-500">
-                服薬記録を読み込めませんでした。
-            </div>
-            `;
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
-            <div class="empty-state">
-                <i class="fa-solid fa-clipboard-check"></i>
-                <p>服薬記録がありません。</p>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        data.map(
-            log =>
-                `
-                <div class="data-row">
-
-                    <div>
-
-                        <div class="data-row-title">
-
-                            ${escapeHtml(
-                                log.medications?.name ||
-                                "おくすり"
-                            )}
-
-                        </div>
-
-                        <div class="data-row-subtitle">
-
-                            ${formatDateTime(
-                                log.taken_at
-                            )}
-
-                            ${
-                                log.timing
-                                    ? ` ・ ${escapeHtml(
-                                        log.timing
-                                    )}`
-                                    : ""
-                            }
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="text-sm font-bold text-slate-700">
-
-                        ${
-                            log.dose ??
-                            "-"
-                        }
-
-                        ${escapeHtml(
-                            log.unit ||
-                            log.medications?.unit ||
-                            ""
-                        )}
-
-                    </div>
-
-                </div>
-                `
-        ).join("");
-
-}
-
-
-// ============================================================
-// ㉝ アラーム
-// ============================================================
-
-async function loadReminders() {
-
-    const container =
-        document.getElementById(
-            "reminders-container"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("medication_reminders")
-        .select(
-            `
-            *,
-            medications (
-                name
-            )
-            `
-        )
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .order(
-            "reminder_time"
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
-            <div class="content-card">
-                <div class="empty-state">
-                    <i class="fa-solid fa-bell"></i>
-                    <p>服薬アラームがありません。</p>
-                </div>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        data.map(
-            reminder =>
-                `
-                <div class="content-card flex items-center justify-between">
-
-                    <div class="flex items-center gap-4">
-
-                        <div class="dashboard-icon bg-blue-50 text-blue-600">
-
-                            <i class="fa-solid fa-clock"></i>
-
-                        </div>
-
-                        <div>
-
-                            <div class="font-bold text-slate-800">
-
-                                ${escapeHtml(
-                                    reminder.medications?.name ||
-                                    "おくすり"
-                                )}
-
-                            </div>
-
-                            <div class="text-sm text-slate-400">
-
-                                ${reminder.reminder_time}
-
-                                ${
-                                    reminder.timing
-                                        ? ` ・ ${escapeHtml(
-                                            reminder.timing
-                                        )}`
-                                        : ""
-                                }
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <div>
-
-                        <span class="status-badge ${
-                            reminder.enabled
-                                ? "status-active"
-                                : "status-stopped"
-                        }">
-
-                            ${
-                                reminder.enabled
-                                    ? "有効"
-                                    : "無効"
-                            }
-
-                        </span>
-
-                    </div>
-
-                </div>
-                `
-        ).join("");
-
-}
-
-
-// ============================================================
-// ㉞ 通院予定
-// ============================================================
-
-async function loadAppointments() {
-
-    const container =
-        document.getElementById(
-            "appointments-container"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("next_appointments")
-        .select("*")
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .order(
-            "appointment_at",
-            {
-                ascending: true
-            }
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
-            <div class="content-card">
-                <div class="empty-state">
-                    <i class="fa-solid fa-hospital"></i>
-                    <p>通院予定がありません。</p>
-                </div>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        data.map(
-            appointment =>
-                `
-                <div class="appointment-card">
-
-                    <div class="appointment-date">
-
-                        <span class="appointment-date-day">
-
-                            ${new Date(
-                                appointment.appointment_at
-                            ).getDate()}
-
-                        </span>
-
-                        <span class="appointment-date-month">
-
-                            ${
-                                new Date(
-                                    appointment.appointment_at
-                                ).getMonth() + 1
-                            }月
-
-                        </span>
-
-                    </div>
-
-
-                    <div class="flex-1">
-
-                        <div class="font-bold text-slate-800">
-
-                            ${escapeHtml(
-                                appointment.hospital_name ||
-                                "医療機関"
-                            )}
-
-                        </div>
-
-                        <div class="text-sm text-slate-500 mt-1">
-
-                            ${escapeHtml(
-                                appointment.department ||
-                                ""
-                            )}
-
-                        </div>
-
-                        <div class="text-sm text-blue-600 font-medium mt-2">
-
-                            ${formatDateTime(
-                                appointment.appointment_at
-                            )}
-
-                        </div>
-
-
-                        ${
-                            appointment.memo
-                                ? `
-                                <div class="text-sm text-slate-500 mt-3">
-                                    ${escapeHtml(
-                                        appointment.memo
-                                    )}
-                                </div>
-                                `
-                                : ""
-                        }
-
-                    </div>
-
-                </div>
-                `
-        ).join("");
-
-}
-
-
-// ============================================================
-// ㉟ フレンド
-// ============================================================
-
-async function loadFriends() {
-
-    const container =
-        document.getElementById(
-            "friends-list"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("friends")
-        .select("*")
-        .or(
-            `user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
-            <div class="empty-state">
-                <i class="fa-solid fa-user-group"></i>
-                <p>まだフレンドがいません。</p>
-            </div>
-            `;
-
-    } else {
-
-        const friendIds =
-            data.map(
-                friendship =>
-                    friendship.user_id ===
-                    currentUser.id
-                        ? friendship.friend_id
-                        : friendship.user_id
-            );
+        showLoading();
 
 
         const {
-            data: profiles
-        } = await supabaseClient
-            .from("profiles")
-            .select(
-                "id, username"
-            )
-            .in(
-                "id",
-                friendIds
+            data,
+            error
+        } =
+            await supabaseClient
+                .from("medications")
+                .insert({
+                    user_id:
+                        currentUser.id,
+                    name,
+                    dosage,
+                    frequency,
+                    notes
+                })
+                .select()
+                .single();
+
+
+        if (error) {
+
+            console.error(
+                "お薬登録エラー:",
+                error
             );
 
-
-        container.innerHTML =
-            (profiles || [])
-                .map(
-                    profile =>
-                        `
-                        <div class="friend-card">
-
-                            <div class="friend-avatar">
-
-                                ${escapeHtml(
-                                    (
-                                        profile.username ||
-                                        "U"
-                                    )
-                                        .charAt(0)
-                                )}
-
-                            </div>
-
-
-                            <div class="flex-1">
-
-                                <div class="font-bold text-slate-700">
-
-                                    ${escapeHtml(
-                                        profile.username ||
-                                        "ユーザー"
-                                    )}
-
-                                </div>
-
-                            </div>
-
-
-                            <button
-                                onclick="openDm('${profile.id}')"
-                                class="secondary-button"
-                            >
-
-                                <i class="fa-solid fa-comment"></i>
-
-                            </button>
-
-                        </div>
-                        `
-                )
-                .join("");
-
-    }
-
-
-    await loadFriendRequests();
-
-}
-
-
-// ============================================================
-// ㊱ フレンド申請
-// ============================================================
-
-async function loadFriendRequests() {
-
-    const container =
-        document.getElementById(
-            "friend-requests"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("friend_requests")
-        .select("*")
-        .eq(
-            "receiver_id",
-            currentUser.id
-        )
-        .eq(
-            "status",
-            "pending"
-        )
-        .order(
-            "created_at",
-            {
-                ascending: false
-            }
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
-            <div class="empty-state">
-                <i class="fa-solid fa-user-plus"></i>
-                <p>新しいフレンド申請はありません。</p>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    const senderIds =
-        data.map(
-            request =>
-                request.sender_id
-        );
-
-
-    const {
-        data: profiles
-    } = await supabaseClient
-        .from("profiles")
-        .select(
-            "id, username"
-        )
-        .in(
-            "id",
-            senderIds
-        );
-
-
-    container.innerHTML =
-        data.map(
-            request => {
-
-                const profile =
-                    profiles?.find(
-                        item =>
-                            item.id ===
-                            request.sender_id
-                    );
-
-
-                return `
-                    <div class="friend-card">
-
-                        <div class="friend-avatar">
-
-                            ${escapeHtml(
-                                (
-                                    profile?.username ||
-                                    "U"
-                                ).charAt(0)
-                            )}
-
-                        </div>
-
-
-                        <div class="flex-1">
-
-                            <div class="font-bold text-slate-700">
-
-                                ${escapeHtml(
-                                    profile?.username ||
-                                    "ユーザー"
-                                )}
-
-                            </div>
-
-                            <div class="text-xs text-slate-400">
-                                フレンド申請
-                            </div>
-
-                        </div>
-
-
-                        <button
-                            onclick="respondFriendRequest('${request.id}', 'accepted')"
-                            class="primary-button"
-                        >
-                            承認
-                        </button>
-
-
-                        <button
-                            onclick="respondFriendRequest('${request.id}', 'rejected')"
-                            class="secondary-button"
-                        >
-                            拒否
-                        </button>
-
-                    </div>
-                `;
-
-            }
-        ).join("");
-
-}
-
-
-// ============================================================
-// ㊲ フレンド検索
-// ============================================================
-
-async function searchFriends() {
-
-    const input =
-        document.getElementById(
-            "friend-search-input"
-        );
-
-
-    const results =
-        document.getElementById(
-            "friend-search-results"
-        );
-
-
-    if (!input || !results) {
-        return;
-    }
-
-
-    const keyword =
-        input.value.trim();
-
-
-    if (!keyword) {
-
-        results.innerHTML =
-            "";
-
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("profiles")
-        .select(
-            "id, username"
-        )
-        .ilike(
-            "username",
-            `%${keyword}%`
-        )
-        .neq(
-            "id",
-            currentUser.id
-        )
-        .limit(20);
-
-
-    if (error) {
-
-        console.error(error);
-
-        results.innerHTML =
-            `
-            <div class="text-sm text-red-500">
-                検索に失敗しました。
-            </div>
-            `;
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        results.innerHTML =
-            `
-            <div class="text-sm text-slate-400 py-4">
-                該当するユーザーが見つかりません。
-            </div>
-            `;
-
-        return;
-    }
-
-
-    results.innerHTML =
-        data.map(
-            profile =>
-                `
-                <div class="friend-card">
-
-                    <div class="friend-avatar">
-
-                        ${escapeHtml(
-                            (
-                                profile.username ||
-                                "U"
-                            ).charAt(0)
-                        )}
-
-                    </div>
-
-
-                    <div class="flex-1">
-
-                        <div class="font-bold text-slate-700">
-
-                            ${escapeHtml(
-                                profile.username ||
-                                "ユーザー"
-                            )}
-
-                        </div>
-
-                    </div>
-
-
-                    <button
-                        onclick="sendFriendRequest('${profile.id}')"
-                        class="primary-button"
-                    >
-
-                        <i class="fa-solid fa-user-plus"></i>
-
-                        申請
-
-                    </button>
-
-                </div>
-                `
-        ).join("");
-
-}
-
-
-// ============================================================
-// ㊳ フレンド申請送信
-// ============================================================
-
-async function sendFriendRequest(
-    receiverId
-) {
-
-    if (
-        !currentUser ||
-        !receiverId
-    ) {
-        return;
-    }
-
-
-    if (
-        receiverId ===
-        currentUser.id
-    ) {
-
-        showToast(
-            "自分自身には申請できません。",
-            "warning"
-        );
-
-        return;
-    }
-
-
-    const {
-        error
-    } = await supabaseClient
-        .from("friend_requests")
-        .insert({
-
-            sender_id:
-                currentUser.id,
-
-            receiver_id:
-                receiverId,
-
-            status:
-                "pending"
-
-        });
-
-
-    if (error) {
-
-        console.error(error);
-
-
-        if (
-            error.code ===
-            "23505"
-        ) {
-
             showToast(
-                "すでに申請済みです。",
-                "warning"
-            );
-
-        } else {
-
-            showToast(
-                "フレンド申請に失敗しました。",
+                "お薬の登録に失敗しました。",
                 "error"
             );
 
+            return;
+
         }
 
-        return;
+
+        medications.unshift(
+            data
+        );
+
+
+        renderMedications();
+
+        updateDashboard();
+
+        closeModal();
+
+        showToast(
+            "お薬を登録しました。",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showToast(
+            "お薬の登録中にエラーが発生しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideLoading();
+
     }
-
-
-    // 通知作成
-
-    await createNotification(
-
-        receiverId,
-
-        "friend_request",
-
-        "フレンド申請",
-
-        `${
-            currentProfile?.username ||
-            "ユーザー"
-        }さんからフレンド申請が届きました。`
-
-    );
-
-
-    showToast(
-        "フレンド申請を送りました。",
-        "success"
-    );
 
 }
 
 
-// ============================================================
-// ㊴ フレンド申請への回答
-// ============================================================
+// ==================================================
+// ㉔ お薬削除
+// ==================================================
 
-async function respondFriendRequest(
-    requestId,
-    status
+async function deleteMedication(
+    medicationId
 ) {
 
     if (!currentUser) {
@@ -3133,604 +1914,150 @@ async function respondFriendRequest(
     }
 
 
-    const {
-        data: request,
-        error: requestError
-    } = await supabaseClient
-        .from("friend_requests")
-        .select("*")
-        .eq(
-            "id",
-            requestId
-        )
-        .eq(
-            "receiver_id",
-            currentUser.id
-        )
-        .single();
-
-
-    if (
-        requestError ||
-        !request
-    ) {
-
-        showToast(
-            "申請を取得できませんでした。",
-            "error"
+    const confirmed =
+        confirm(
+            "このお薬を削除しますか？"
         );
 
+
+    if (!confirmed) {
         return;
     }
 
 
-    const {
-        error
-    } = await supabaseClient
-        .from("friend_requests")
-        .update({
+    try {
 
-            status
-
-        })
-        .eq(
-            "id",
-            requestId
-        );
+        showLoading();
 
 
-    if (error) {
-
-        console.error(error);
-
-        showToast(
-            "処理に失敗しました。",
-            "error"
-        );
-
-        return;
-    }
-
-
-    if (
-        status ===
-        "accepted"
-    ) {
-
-        await supabaseClient
-            .from("friends")
-            .upsert({
-
-                user_id:
-                    currentUser.id,
-
-                friend_id:
-                    request.sender_id
-
-            });
-
-
-        await supabaseClient
-            .from("friends")
-            .upsert({
-
-                user_id:
-                    request.sender_id,
-
-                friend_id:
+        const {
+            error
+        } =
+            await supabaseClient
+                .from("medications")
+                .delete()
+                .eq(
+                    "id",
+                    medicationId
+                )
+                .eq(
+                    "user_id",
                     currentUser.id
-
-            });
-
-
-        await createNotification(
-
-            request.sender_id,
-
-            "friend_accepted",
-
-            "フレンド申請が承認されました",
-
-            `${
-                currentProfile?.username ||
-                "ユーザー"
-            }さんとフレンドになりました。`
-
-        );
+                );
 
 
-        showToast(
-            "フレンド申請を承認しました。",
-            "success"
-        );
+        if (error) {
 
-    } else {
+            console.error(
+                "お薬削除エラー:",
+                error
+            );
 
-        showToast(
-            "フレンド申請を拒否しました。",
-            "info"
-        );
+            showToast(
+                "お薬の削除に失敗しました。",
+                "error"
+            );
 
-    }
+            return;
 
-
-    await loadFriends();
-
-}
+        }
 
 
-// ============================================================
-// ㊵ DMフレンド
-// ============================================================
-
-async function loadDmFriends() {
-
-    const container =
-        document.getElementById(
-            "dm-friend-list"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data: friendships,
-        error
-    } = await supabaseClient
-        .from("friends")
-        .select("*")
-        .or(
-            `user_id.eq.${currentUser.id},friend_id.eq.${currentUser.id}`
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    const friendIds =
-        (friendships || [])
-            .map(
-                friendship =>
-                    friendship.user_id ===
-                    currentUser.id
-                        ? friendship.friend_id
-                        : friendship.user_id
+        medications =
+            medications.filter(
+                medication =>
+                    medication.id !==
+                    medicationId
             );
 
 
-    if (!friendIds.length) {
+        renderMedications();
 
-        container.innerHTML =
-            `
-            <div class="empty-state">
-                <i class="fa-solid fa-comments"></i>
-                <p>DMできるフレンドがいません。</p>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    const {
-        data: profiles
-    } = await supabaseClient
-        .from("profiles")
-        .select(
-            "id, username"
-        )
-        .in(
-            "id",
-            friendIds
-        );
-
-
-    container.innerHTML =
-        (profiles || [])
-            .map(
-                profile =>
-                    `
-                    <button
-                        onclick="openDm('${profile.id}')"
-                        class="friend-card w-full text-left"
-                    >
-
-                        <div class="friend-avatar">
-
-                            ${escapeHtml(
-                                (
-                                    profile.username ||
-                                    "U"
-                                ).charAt(0)
-                            )}
-
-                        </div>
-
-                        <div>
-
-                            <div class="font-bold text-slate-700">
-
-                                ${escapeHtml(
-                                    profile.username ||
-                                    "ユーザー"
-                                )}
-
-                            </div>
-
-                            <div class="text-xs text-slate-400">
-                                DMを開く
-                            </div>
-
-                        </div>
-
-                    </button>
-                    `
-            )
-            .join("");
-
-}
-
-
-// ============================================================
-// ㊶ DMを開く
-// ============================================================
-
-async function openDm(
-    friendId
-) {
-
-    selectedDmFriend =
-        friendId;
-
-
-    const {
-        data: profile
-    } = await supabaseClient
-        .from("profiles")
-        .select(
-            "id, username"
-        )
-        .eq(
-            "id",
-            friendId
-        )
-        .maybeSingle();
-
-
-    const header =
-        document.getElementById(
-            "dm-header"
-        );
-
-
-    if (header) {
-
-        header.innerHTML =
-            `
-            <div class="flex items-center gap-3">
-
-                <div class="friend-avatar">
-
-                    ${escapeHtml(
-                        (
-                            profile?.username ||
-                            "U"
-                        ).charAt(0)
-                    )}
-
-                </div>
-
-                <div>
-
-                    <div class="font-bold text-slate-800">
-
-                        ${escapeHtml(
-                            profile?.username ||
-                            "ユーザー"
-                        )}
-
-                    </div>
-
-                    <div class="text-xs text-slate-400">
-                        フレンド
-                    </div>
-
-                </div>
-
-            </div>
-            `;
-
-    }
-
-
-    await loadMessages();
-
-}
-
-
-// ============================================================
-// ㊷ メッセージ読み込み
-// ============================================================
-
-async function loadMessages() {
-
-    if (
-        !currentUser ||
-        !selectedDmFriend
-    ) {
-        return;
-    }
-
-
-    const container =
-        document.getElementById(
-            "messages-container"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("direct_messages")
-        .select("*")
-        .or(
-            `and(sender_id.eq.${currentUser.id},receiver_id.eq.${selectedDmFriend}),and(sender_id.eq.${selectedDmFriend},receiver_id.eq.${currentUser.id})`
-        )
-        .order(
-            "created_at",
-            {
-                ascending: true
-            }
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    container.innerHTML =
-        (data || [])
-            .map(
-                message => {
-
-                    const sent =
-                        message.sender_id ===
-                        currentUser.id;
-
-
-                    return `
-                        <div>
-
-                            <div class="message-bubble ${
-                                sent
-                                    ? "message-sent"
-                                    : "message-received"
-                            }">
-
-                                ${escapeHtml(
-                                    message.message
-                                )}
-
-                            </div>
-
-                            <div class="message-time">
-
-                                ${formatDateTime(
-                                    message.created_at
-                                )}
-
-                            </div>
-
-                        </div>
-                    `;
-
-                }
-            )
-            .join("");
-
-
-    container.scrollTop =
-        container.scrollHeight;
-
-
-    // 未読を既読にする
-
-    await supabaseClient
-        .from("direct_messages")
-        .update({
-
-            is_read: true
-
-        })
-        .eq(
-            "sender_id",
-            selectedDmFriend
-        )
-        .eq(
-            "receiver_id",
-            currentUser.id
-        )
-        .eq(
-            "is_read",
-            false
-        );
-
-}
-
-
-// ============================================================
-// ㊸ DM送信
-// ============================================================
-
-async function sendMessage() {
-
-    if (
-        !currentUser ||
-        !selectedDmFriend
-    ) {
+        updateDashboard();
 
         showToast(
-            "送信先のフレンドを選択してください。",
-            "warning"
+            "お薬を削除しました。",
+            "success"
         );
 
-        return;
-    }
-
-
-    const input =
-        document.getElementById(
-            "message-input"
-        );
-
-
-    const message =
-        input?.value.trim();
-
-
-    if (!message) {
-        return;
-    }
-
-
-    const {
-        error
-    } = await supabaseClient
-        .from("direct_messages")
-        .insert({
-
-            sender_id:
-                currentUser.id,
-
-            receiver_id:
-                selectedDmFriend,
-
-            message
-
-        });
-
-
-    if (error) {
+    } catch (error) {
 
         console.error(error);
 
         showToast(
-            "メッセージを送信できませんでした。",
+            "お薬の削除中にエラーが発生しました。",
             "error"
         );
 
-        return;
-    }
+    } finally {
 
-
-    input.value =
-        "";
-
-
-    await createNotification(
-
-        selectedDmFriend,
-
-        "dm",
-
-        "新しいDM",
-
-        `${
-            currentProfile?.username ||
-            "ユーザー"
-        }さんからメッセージが届きました。`
-
-    );
-
-
-    await loadMessages();
-
-}
-
-
-// ============================================================
-// ㊹ EnterでDM送信
-// ============================================================
-
-function handleMessageKeydown(
-    event
-) {
-
-    if (
-        event.key ===
-        "Enter"
-    ) {
-
-        event.preventDefault();
-
-        sendMessage();
+        hideLoading();
 
     }
 
 }
 
 
-// ============================================================
-// ㊺ 通知
-// ============================================================
+// ==================================================
+// ㉕ 服薬記録読み込み
+// ==================================================
 
-async function createNotification(
-    userId,
-    type,
-    title,
-    message,
-    relatedId = null
-) {
+async function loadMedicationLogs() {
 
-    if (!userId) {
+    if (!currentUser) {
         return;
     }
 
 
-    const {
-        error
-    } = await supabaseClient
-        .from("notifications")
-        .insert({
+    try {
 
-            user_id:
-                userId,
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .from("medication_logs")
+                .select("*")
+                .eq(
+                    "user_id",
+                    currentUser.id
+                )
+                .order(
+                    "taken_at",
+                    {
+                        ascending: false
+                    }
+                );
 
-            notification_type:
-                type,
 
-            title,
+        if (error) {
 
-            message,
+            console.error(
+                "服薬記録取得エラー:",
+                error
+            );
 
-            related_id:
-                relatedId
+            medicationLogs = [];
 
-        });
+            renderMedicationLogs();
+
+            return;
+
+        }
 
 
-    if (error) {
+        medicationLogs =
+            data || [];
+
+
+        renderMedicationLogs();
+
+        updateDashboard();
+
+    } catch (error) {
 
         console.error(
-            "Notification error:",
+            "服薬記録読み込みエラー:",
             error
         );
 
@@ -3739,15 +2066,15 @@ async function createNotification(
 }
 
 
-// ============================================================
-// ㊻ 通知読み込み
-// ============================================================
+// ==================================================
+// ㉖ 服薬記録表示
+// ==================================================
 
-async function loadNotifications() {
+function renderMedicationLogs() {
 
     const container =
         document.getElementById(
-            "notifications-container"
+            "medication-logs-list"
         );
 
 
@@ -3756,1027 +2083,107 @@ async function loadNotifications() {
     }
 
 
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("notifications")
-        .select("*")
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .order(
-            "created_at",
-            {
-                ascending: false
-            }
-        )
-        .limit(100);
+    if (!medicationLogs.length) {
 
+        container.innerHTML = `
 
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    if (!data?.length) {
-
-        container.innerHTML =
-            `
             <div class="empty-state">
-                <i class="fa-regular fa-bell"></i>
-                <p>通知はありません。</p>
+
+                <i class="fa-solid fa-check-double"></i>
+
+                <p>
+                    服薬記録はありません
+                </p>
+
             </div>
-            `;
+
+        `;
 
         return;
+
     }
 
 
     container.innerHTML =
-        data.map(
-            notification =>
-                `
-                <div class="notification-item ${
-                    notification.is_read
-                        ? ""
-                        : "unread"
-                }">
-
-                    <div class="notification-icon">
-
-                        <i class="fa-solid ${
-                            notification.notification_type ===
-                            "dm"
-                                ? "fa-comments"
-                                : notification.notification_type ===
-                                  "friend_request"
-                                ? "fa-user-plus"
-                                : "fa-bell"
-                        }"></i>
-
-                    </div>
-
-
-                    <div class="flex-1">
-
-                        <div class="font-bold text-slate-700">
-
-                            ${escapeHtml(
-                                notification.title ||
-                                "通知"
-                            )}
-
-                        </div>
-
-                        <div class="text-sm text-slate-500 mt-1">
-
-                            ${escapeHtml(
-                                notification.message ||
-                                ""
-                            )}
-
-                        </div>
-
-                        <div class="text-xs text-slate-400 mt-2">
-
-                            ${formatDateTime(
-                                notification.created_at
-                            )}
-
-                        </div>
-
-                    </div>
-
-                </div>
-                `
-        ).join("");
-
-
-    updateNotificationBadge(
-        data
-    );
-
-}
-
-
-// ============================================================
-// ㊼ 通知バッジ
-// ============================================================
-
-async function updateNotificationBadge(
-    notifications = null
-) {
-
-    if (!currentUser) {
-        return;
-    }
-
-
-    let unreadCount = 0;
-
-
-    if (notifications) {
-
-        unreadCount =
-            notifications.filter(
-                item =>
-                    !item.is_read
-            ).length;
-
-    } else {
-
-        const {
-            count
-        } = await supabaseClient
-            .from("notifications")
-            .select(
-                "id",
-                {
-                    count: "exact",
-                    head: true
-                }
-            )
-            .eq(
-                "user_id",
-                currentUser.id
-            )
-            .eq(
-                "is_read",
-                false
-            );
-
-        unreadCount =
-            count || 0;
-
-    }
-
-
-    const badge =
-        document.getElementById(
-            "notification-badge"
-        );
-
-
-    const dot =
-        document.getElementById(
-            "header-notification-dot"
-        );
-
-
-    if (badge) {
-
-        badge.textContent =
-            unreadCount;
-
-
-        badge.classList.toggle(
-            "hidden",
-            unreadCount === 0
-        );
-
-    }
-
-
-    if (dot) {
-
-        dot.classList.toggle(
-            "hidden",
-            unreadCount === 0
-        );
-
-    }
-
-}
-
-
-// ============================================================
-// ㊽ 全通知既読
-// ============================================================
-
-async function markAllNotificationsRead() {
-
-    if (!currentUser) {
-        return;
-    }
-
-
-    const {
-        error
-    } = await supabaseClient
-        .from("notifications")
-        .update({
-
-            is_read: true
-
-        })
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .eq(
-            "is_read",
-            false
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    await loadNotifications();
-
-    await updateNotificationBadge();
-
-
-    showToast(
-        "すべて既読にしました。",
-        "success"
-    );
-
-}
-
-
-// ============================================================
-// ㊾ 統計
-// ============================================================
-
-async function loadStatistics() {
-
-    if (!currentUser) {
-        return;
-    }
-
-
-    const periodElement =
-        document.getElementById(
-            "statistics-period"
-        );
-
-
-    const days =
-        Number(
-            periodElement?.value ||
-            7
-        );
-
-
-    const start =
-        new Date();
-
-
-    start.setDate(
-        start.getDate() -
-        (days - 1)
-    );
-
-
-    const {
-        data: logs,
-        error
-    } = await supabaseClient
-        .from("medication_logs")
-        .select(
-            `
-            *,
-            medications (
-                name,
-                classification
-            )
-            `
-        )
-        .eq(
-            "user_id",
-            currentUser.id
-        )
-        .gte(
-            "taken_at",
-            start.toISOString()
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    const ranking = {};
-
-
-    const classifications = {};
-
-
-    (logs || []).forEach(
-        log => {
-
-            const name =
-                log.medications?.name ||
-                "不明";
-
-
-            ranking[name] =
-                (ranking[name] || 0) +
-                1;
-
-
-            const classification =
-                log.medications?.classification ||
-                "その他";
-
-
-            classifications[
-                classification
-            ] =
-                (
-                    classifications[
-                        classification
-                    ] || 0
-                ) + 1;
-
-        }
-    );
-
-
-    renderMedicationRanking(
-        ranking
-    );
-
-
-    renderClassificationChart(
-        classifications
-    );
-
-
-    renderMedicationChart(
-        ranking
-    );
-
-
-    await loadLowStockList();
-
-}
-
-
-// ============================================================
-// ㊿ ランキング
-// ============================================================
-
-function renderMedicationRanking(
-    ranking
-) {
-
-    const container =
-        document.getElementById(
-            "medication-ranking"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const sorted =
-        Object.entries(
-            ranking
-        )
-        .sort(
-            (
-                [, a],
-                [, b]
-            ) =>
-                b - a
-        );
-
-
-    if (!sorted.length) {
-
-        container.innerHTML =
-            `
-            <div class="empty-state">
-                <p>データがありません。</p>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        sorted
-            .slice(0, 10)
+        medicationLogs
             .map(
-                (
-                    [name, count],
-                    index
-                ) =>
-                    `
-                    <div class="ranking-item">
-
-                        <div class="ranking-number">
-
-                            ${index + 1}
-
-                        </div>
-
-
-                        <div class="flex-1">
-
-                            <div class="font-bold text-slate-700">
-
-                                ${escapeHtml(
-                                    name
-                                )}
-
-                            </div>
-
-                        </div>
-
-
-                        <div class="font-bold text-blue-600">
-
-                            ${count}回
-
-                        </div>
-
-                    </div>
-                    `
+                log =>
+                    createMedicationLogItem(
+                        log
+                    )
             )
             .join("");
 
 }
 
 
-// ============================================================
-// 51. Chart
-// ============================================================
+// ==================================================
+// ㉗ 服薬記録アイテム
+// ==================================================
 
-function renderMedicationChart(
-    ranking
+function createMedicationLogItem(
+    log
 ) {
 
-    const canvas =
-        document.getElementById(
-            "medication-chart"
+    const medication =
+        medications.find(
+            item =>
+                item.id ===
+                log.medication_id
         );
 
 
-    if (!canvas) {
-        return;
-    }
+    const medicationName =
+        medication?.name ||
+        log.medication_name ||
+        "お薬";
 
 
-    if (medicationChart) {
-
-        medicationChart.destroy();
-
-    }
-
-
-    const sorted =
-        Object.entries(
-            ranking
-        )
-        .sort(
-            (
-                [, a],
-                [, b]
-            ) =>
-                b - a
-        )
-        .slice(0, 10);
-
-
-    medicationChart =
-        new Chart(
-            canvas,
-            {
-
-                type:
-                    "bar",
-
-                data: {
-
-                    labels:
-                        sorted.map(
-                            item =>
-                                item[0]
-                        ),
-
-                    datasets: [
-
-                        {
-
-                            label:
-                                "服用回数",
-
-                            data:
-                                sorted.map(
-                                    item =>
-                                        item[1]
-                                )
-
-                        }
-
-                    ]
-
-                },
-
-                options: {
-
-                    responsive:
-                        true,
-
-                    maintainAspectRatio:
-                        false,
-
-                    plugins: {
-
-                        legend: {
-
-                            display:
-                                false
-
-                        }
-
-                    }
-
-                }
-
-            }
-        );
-
-}
-
-
-// ============================================================
-// 52. Classification chart
-// ============================================================
-
-function renderClassificationChart(
-    classifications
-) {
-
-    const canvas =
-        document.getElementById(
-            "classification-chart"
+    const date =
+        formatDateTime(
+            log.taken_at ||
+            log.created_at
         );
 
 
-    if (!canvas) {
-        return;
-    }
+    return `
 
+        <div class="flex items-center justify-between gap-4 p-4">
 
-    if (
-        classificationChart
-    ) {
+            <div class="flex min-w-0 items-center gap-3">
 
-        classificationChart.destroy();
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
 
-    }
+                    <i class="fa-solid fa-check"></i>
 
+                </div>
 
-    classificationChart =
-        new Chart(
-            canvas,
-            {
+                <div class="min-w-0">
 
-                type:
-                    "doughnut",
-
-                data: {
-
-                    labels:
-                        Object.keys(
-                            classifications
-                        ),
-
-                    datasets: [
-
-                        {
-
-                            data:
-                                Object.values(
-                                    classifications
-                                )
-
-                        }
-
-                    ]
-
-                },
-
-                options: {
-
-                    responsive:
-                        true,
-
-                    maintainAspectRatio:
-                        false
-
-                }
-
-            }
-        );
-
-}
-
-
-// ============================================================
-// 53. Low stock list
-// ============================================================
-
-async function loadLowStockList() {
-
-    const container =
-        document.getElementById(
-            "low-stock-list"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const {
-        data,
-        error
-    } = await supabaseClient
-        .from("medications")
-        .select(
-            "name, stock, low_stock_threshold, unit"
-        )
-        .eq(
-            "user_id",
-            currentUser.id
-        );
-
-
-    if (error) {
-
-        console.error(error);
-
-        return;
-    }
-
-
-    const lowStock =
-        (data || []).filter(
-            medication =>
-                Number(
-                    medication.stock ?? 0
-                ) <=
-                Number(
-                    medication.low_stock_threshold ?? 5
-                )
-        );
-
-
-    if (!lowStock.length) {
-
-        container.innerHTML =
-            `
-            <div class="empty-state">
-                <i class="fa-solid fa-circle-check"></i>
-                <p>在庫の少ないおくすりはありません。</p>
-            </div>
-            `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        lowStock.map(
-            medication =>
-                `
-                <div class="data-row">
-
-                    <div>
-
-                        <div class="data-row-title">
-
-                            ${escapeHtml(
-                                medication.name
-                            )}
-
-                        </div>
-
-                        <div class="data-row-subtitle">
-                            在庫が少なくなっています
-                        </div>
-
-                    </div>
-
-
-                    <div class="text-red-500 font-bold">
-
-                        ${medication.stock}
+                    <div class="truncate text-sm font-bold text-slate-800">
 
                         ${escapeHtml(
-                            medication.unit ||
-                            "錠"
+                            medicationName
                         )}
 
                     </div>
 
+                    <div class="mt-1 text-xs text-slate-400">
+
+                        ${date}
+
+                    </div>
+
                 </div>
-                `
-        ).join("");
 
-}
+            </div>
 
 
-// ============================================================
-// 54. Personal records
-// ============================================================
+            <span class="shrink-0 rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-600">
 
-async function loadPersonalRecords() {
+                服用済み
 
-    if (!currentUser) {
-        return;
-    }
-
-
-    const container =
-        document.getElementById(
-            "personal-records-container"
-        );
-
-
-    if (!container) {
-        return;
-    }
-
-
-    const [
-        bodyResult,
-        allergyResult,
-        diagnosisResult,
-        visitResult
-    ] =
-        await Promise.all([
-
-            supabaseClient
-                .from("body_records")
-                .select("*")
-                .eq(
-                    "user_id",
-                    currentUser.id
-                )
-                .order(
-                    "recorded_at",
-                    {
-                        ascending: false
-                    }
-                )
-                .limit(5),
-
-            supabaseClient
-                .from("allergies")
-                .select("*")
-                .eq(
-                    "user_id",
-                    currentUser.id
-                ),
-
-            supabaseClient
-                .from("diagnoses")
-                .select("*")
-                .eq(
-                    "user_id",
-                    currentUser.id
-                ),
-
-            supabaseClient
-                .from("medical_visits")
-                .select("*")
-                .eq(
-                    "user_id",
-                    currentUser.id
-                )
-                .order(
-                    "visit_date",
-                    {
-                        ascending: false
-                    }
-                )
-                .limit(5)
-
-        ]);
-
-
-    container.innerHTML = `
-
-        <div class="mb-6">
-
-            <h4 class="font-bold text-slate-700 mb-3">
-                身長・体重
-            </h4>
-
-            ${
-                bodyResult.data?.length
-                    ? bodyResult.data
-                        .map(
-                            item =>
-                                `
-                                <div class="data-row">
-
-                                    <div class="text-sm text-slate-400">
-
-                                        ${formatDate(
-                                            item.recorded_at
-                                        )}
-
-                                    </div>
-
-                                    <div class="font-bold">
-
-                                        ${
-                                            item.height ??
-                                            "-"
-                                        } cm
-
-                                        /
-
-                                        ${
-                                            item.weight ??
-                                            "-"
-                                        } kg
-
-                                    </div>
-
-                                </div>
-                                `
-                        )
-                        .join("")
-                    : `
-                        <div class="text-sm text-slate-400">
-                            記録がありません。
-                        </div>
-                    `
-            }
-
-        </div>
-
-
-        <div class="mb-6">
-
-            <h4 class="font-bold text-slate-700 mb-3">
-                アレルギー
-            </h4>
-
-            ${
-                allergyResult.data?.length
-                    ? allergyResult.data
-                        .map(
-                            item =>
-                                `
-                                <div class="data-row">
-
-                                    <div class="font-bold">
-
-                                        ${escapeHtml(
-                                            item.allergy_name
-                                        )}
-
-                                    </div>
-
-                                    <div class="text-sm text-slate-400">
-
-                                        ${escapeHtml(
-                                            item.reaction ||
-                                            ""
-                                        )}
-
-                                    </div>
-
-                                </div>
-                                `
-                        )
-                        .join("")
-                    : `
-                        <div class="text-sm text-slate-400">
-                            登録されていません。
-                        </div>
-                    `
-            }
-
-        </div>
-
-
-        <div class="mb-6">
-
-            <h4 class="font-bold text-slate-700 mb-3">
-                病名
-            </h4>
-
-            ${
-                diagnosisResult.data?.length
-                    ? diagnosisResult.data
-                        .map(
-                            item =>
-                                `
-                                <div class="data-row">
-
-                                    <div class="font-bold">
-
-                                        ${escapeHtml(
-                                            item.disease_name
-                                        )}
-
-                                    </div>
-
-                                    <div class="text-sm text-slate-400">
-
-                                        ${escapeHtml(
-                                            item.status ||
-                                            ""
-                                        )}
-
-                                    </div>
-
-                                </div>
-                                `
-                        )
-                        .join("")
-                    : `
-                        <div class="text-sm text-slate-400">
-                            登録されていません。
-                        </div>
-                    `
-            }
-
-        </div>
-
-
-        <div>
-
-            <h4 class="font-bold text-slate-700 mb-3">
-                通院履歴
-            </h4>
-
-            ${
-                visitResult.data?.length
-                    ? visitResult.data
-                        .map(
-                            item =>
-                                `
-                                <div class="data-row">
-
-                                    <div>
-
-                                        <div class="font-bold">
-
-                                            ${escapeHtml(
-                                                item.hospital_name ||
-                                                "医療機関"
-                                            )}
-
-                                        </div>
-
-                                        <div class="text-xs text-slate-400 mt-1">
-
-                                            ${formatDate(
-                                                item.visit_date
-                                            )}
-
-                                        </div>
-
-                                    </div>
-
-                                    <div class="text-sm text-slate-400">
-
-                                        ${escapeHtml(
-                                            item.department ||
-                                            ""
-                                        )}
-
-                                    </div>
-
-                                </div>
-                                `
-                        )
-                        .join("")
-                    : `
-                        <div class="text-sm text-slate-400">
-                            通院履歴がありません。
-                        </div>
-                    `
-            }
+            </span>
 
         </div>
 
@@ -4785,9 +2192,940 @@ async function loadPersonalRecords() {
 }
 
 
-// ============================================================
-// 55. Helper
-// ============================================================
+// ==================================================
+// ㉘ 服薬記録モーダル
+// ==================================================
+
+function openMedicationLogModal() {
+
+    if (!medications.length) {
+
+        showToast(
+            "先にお薬を登録してください。",
+            "error"
+        );
+
+        showView(
+            "medications"
+        );
+
+        return;
+
+    }
+
+
+    const options =
+        medications
+            .map(
+                medication => `
+
+                    <option
+                        value="${medication.id}"
+                    >
+                        ${escapeHtml(
+                            medication.name
+                        )}
+                    </option>
+
+                `
+            )
+            .join("");
+
+
+    openModal(`
+
+        <div class="p-6">
+
+            <div class="mb-6 flex items-start justify-between">
+
+                <div>
+
+                    <h2 class="text-xl font-extrabold text-slate-900">
+                        服薬を記録
+                    </h2>
+
+                    <p class="mt-1 text-xs text-slate-400">
+                        服用したお薬を記録します。
+                    </p>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    class="flex h-9 w-9 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100"
+                    onclick="closeModal()"
+                >
+
+                    <i class="fa-solid fa-xmark"></i>
+
+                </button>
+
+            </div>
+
+
+            <form
+                onsubmit="saveMedicationLog(event)"
+            >
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        お薬
+                    </label>
+
+                    <select
+                        id="log-medication-id"
+                        class="input-field"
+                        required
+                    >
+
+                        ${options}
+
+                    </select>
+
+                </div>
+
+
+                <div class="mb-5">
+
+                    <label class="form-label">
+                        服用日時
+                    </label>
+
+                    <input
+                        id="log-taken-at"
+                        type="datetime-local"
+                        class="input-field"
+                        required
+                    >
+
+                </div>
+
+
+                <div class="flex justify-end gap-2">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        onclick="closeModal()"
+                    >
+                        キャンセル
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+
+                        <i class="fa-solid fa-check"></i>
+
+                        記録する
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    `);
+
+
+    // 現在日時
+
+    const input =
+        document.getElementById(
+            "log-taken-at"
+        );
+
+
+    if (input) {
+
+        const now =
+            new Date();
+
+
+        const local =
+            new Date(
+                now.getTime() -
+                now.getTimezoneOffset() *
+                    60000
+            )
+                .toISOString()
+                .slice(
+                    0,
+                    16
+                );
+
+
+        input.value =
+            local;
+
+    }
+
+}
+
+
+// ==================================================
+// ㉙ 服薬記録保存
+// ==================================================
+
+async function saveMedicationLog(
+    event
+) {
+
+    event.preventDefault();
+
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    const medicationId =
+        document
+            .getElementById(
+                "log-medication-id"
+            )
+            ?.value;
+
+
+    const takenAt =
+        document
+            .getElementById(
+                "log-taken-at"
+            )
+            ?.value;
+
+
+    if (
+        !medicationId ||
+        !takenAt
+    ) {
+
+        showToast(
+            "必要な項目を入力してください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+
+    const medication =
+        medications.find(
+            item =>
+                item.id ===
+                medicationId
+        );
+
+
+    try {
+
+        showLoading();
+
+
+        const {
+            data,
+            error
+        } =
+            await supabaseClient
+                .from("medication_logs")
+                .insert({
+                    user_id:
+                        currentUser.id,
+                    medication_id:
+                        medicationId,
+                    medication_name:
+                        medication?.name ||
+                        null,
+                    taken_at:
+                        new Date(
+                            takenAt
+                        ).toISOString()
+                })
+                .select()
+                .single();
+
+
+        if (error) {
+
+            console.error(
+                "服薬記録保存エラー:",
+                error
+            );
+
+            showToast(
+                "服薬記録の保存に失敗しました。",
+                "error"
+            );
+
+            return;
+
+        }
+
+
+        medicationLogs.unshift(
+            data
+        );
+
+
+        renderMedicationLogs();
+
+        updateDashboard();
+
+        closeModal();
+
+        showToast(
+            "服薬を記録しました。",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        showToast(
+            "服薬記録中にエラーが発生しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideLoading();
+
+    }
+
+}
+
+
+// ==================================================
+// ㉚ ダッシュボード更新
+// ==================================================
+
+function updateDashboard() {
+
+    if (!currentUser) {
+        return;
+    }
+
+
+    // お薬数
+
+    setText(
+        "dashboard-medication-count",
+        medications.length
+    );
+
+
+    // 今日の服薬数
+
+    const today =
+        new Date();
+
+
+    const todayString =
+        today
+            .toISOString()
+            .slice(
+                0,
+                10
+            );
+
+
+    const todayLogs =
+        medicationLogs.filter(
+            log => {
+
+                const date =
+                    new Date(
+                        log.taken_at ||
+                        log.created_at
+                    )
+                        .toISOString()
+                        .slice(
+                            0,
+                            10
+                        );
+
+                return (
+                    date ===
+                    todayString
+                );
+
+            }
+        );
+
+
+    setText(
+        "dashboard-taken-count",
+        todayLogs.length
+    );
+
+
+    // フレンド数
+
+    setText(
+        "dashboard-friend-count",
+        friends.length
+    );
+
+
+    // 今日の服薬一覧
+
+    renderDashboardMedicationList();
+
+
+    // 次回予定
+
+    renderDashboardAppointment();
+
+}
+
+
+// ==================================================
+// ㉛ ダッシュボード服薬一覧
+// ==================================================
+
+function renderDashboardMedicationList() {
+
+    const container =
+        document.getElementById(
+            "dashboard-medication-list"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    if (!medications.length) {
+
+        container.innerHTML = `
+
+            <div class="empty-state">
+
+                <i class="fa-solid fa-pills"></i>
+
+                <p>
+                    登録されているお薬はありません
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    const today =
+        new Date()
+            .toISOString()
+            .slice(
+                0,
+                10
+            );
+
+
+    const todayMedicationIds =
+        new Set(
+            medicationLogs
+                .filter(
+                    log =>
+                        new Date(
+                            log.taken_at ||
+                            log.created_at
+                        )
+                            .toISOString()
+                            .slice(
+                                0,
+                                10
+                            ) ===
+                        today
+                )
+                .map(
+                    log =>
+                        log.medication_id
+                )
+        );
+
+
+    container.innerHTML =
+        medications
+            .slice(
+                0,
+                5
+            )
+            .map(
+                medication => {
+
+                    const taken =
+                        todayMedicationIds.has(
+                            medication.id
+                        );
+
+
+                    return `
+
+                        <div class="flex items-center justify-between gap-4 border-b border-slate-100 py-4 last:border-b-0">
+
+                            <div class="flex min-w-0 items-center gap-3">
+
+                                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                                    taken
+                                        ? "bg-emerald-50 text-emerald-600"
+                                        : "bg-blue-50 text-blue-600"
+                                }">
+
+                                    <i class="fa-solid ${
+                                        taken
+                                            ? "fa-check"
+                                            : "fa-pills"
+                                    }"></i>
+
+                                </div>
+
+                                <div class="min-w-0">
+
+                                    <div class="truncate text-sm font-bold text-slate-800">
+
+                                        ${escapeHtml(
+                                            medication.name ||
+                                            "お薬"
+                                        )}
+
+                                    </div>
+
+                                    <div class="mt-1 text-xs text-slate-400">
+
+                                        ${escapeHtml(
+                                            medication.dosage ||
+                                            medication.frequency ||
+                                            ""
+                                        )}
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+
+                            <span class="shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                                taken
+                                    ? "bg-emerald-50 text-emerald-600"
+                                    : "bg-slate-100 text-slate-500"
+                            }">
+
+                                ${
+                                    taken
+                                        ? "服用済み"
+                                        : "未服用"
+                                }
+
+                            </span>
+
+                        </div>
+
+                    `;
+
+                }
+            )
+            .join("");
+
+}
+
+
+// ==================================================
+// ㉜ ダッシュボード次回予定
+// ==================================================
+
+function renderDashboardAppointment() {
+
+    const container =
+        document.getElementById(
+            "dashboard-appointment-list"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    if (
+        typeof appointments ===
+        "undefined" ||
+        !appointments.length
+    ) {
+
+        container.innerHTML = `
+
+            <div class="empty-state">
+
+                <i class="fa-solid fa-calendar-days"></i>
+
+                <p>
+                    予定はありません
+                </p>
+
+            </div>
+
+        `;
+
+        setText(
+            "dashboard-next-appointment",
+            "--"
+        );
+
+        return;
+
+    }
+
+
+    const now =
+        new Date();
+
+
+    const upcoming =
+        appointments
+            .filter(
+                appointment =>
+                    new Date(
+                        appointment.date ||
+                        appointment.appointment_date ||
+                        appointment.scheduled_at
+                    ) >= now
+            )
+            .sort(
+                (a, b) =>
+                    new Date(
+                        a.date ||
+                        a.appointment_date ||
+                        a.scheduled_at
+                    ) -
+                    new Date(
+                        b.date ||
+                        b.appointment_date ||
+                        b.scheduled_at
+                    )
+            );
+
+
+    if (!upcoming.length) {
+
+        container.innerHTML = `
+
+            <div class="empty-state">
+
+                <i class="fa-solid fa-calendar-days"></i>
+
+                <p>
+                    今後の予定はありません
+                </p>
+
+            </div>
+
+        `;
+
+        setText(
+            "dashboard-next-appointment",
+            "--"
+        );
+
+        return;
+
+    }
+
+
+    const next =
+        upcoming[0];
+
+
+    const dateValue =
+        next.date ||
+        next.appointment_date ||
+        next.scheduled_at;
+
+
+    setText(
+        "dashboard-next-appointment",
+        formatDate(
+            dateValue
+        )
+    );
+
+
+    container.innerHTML = `
+
+        <div class="rounded-2xl bg-slate-50 p-4">
+
+            <div class="flex items-start gap-3">
+
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-purple-50 text-purple-600">
+
+                    <i class="fa-solid fa-calendar-check"></i>
+
+                </div>
+
+                <div class="min-w-0">
+
+                    <div class="font-bold text-slate-800">
+
+                        ${escapeHtml(
+                            next.hospital_name ||
+                            next.title ||
+                            next.name ||
+                            "通院予定"
+                        )}
+
+                    </div>
+
+                    <div class="mt-1 text-xs text-slate-400">
+
+                        ${formatDate(
+                            dateValue
+                        )}
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+// ==================================================
+// ㉝ モーダル
+// ==================================================
+
+function openModal(
+    html
+) {
+
+    const overlay =
+        document.getElementById(
+            "modal-overlay"
+        );
+
+    const content =
+        document.getElementById(
+            "modal-content"
+        );
+
+
+    if (!overlay || !content) {
+        return;
+    }
+
+
+    content.innerHTML =
+        html;
+
+
+    overlay.classList.remove(
+        "hidden"
+    );
+
+    overlay.classList.add(
+        "flex"
+    );
+
+}
+
+
+function closeModal() {
+
+    const overlay =
+        document.getElementById(
+            "modal-overlay"
+        );
+
+    const content =
+        document.getElementById(
+            "modal-content"
+        );
+
+
+    overlay?.classList.add(
+        "hidden"
+    );
+
+    overlay?.classList.remove(
+        "flex"
+    );
+
+
+    if (content) {
+
+        content.innerHTML = "";
+
+    }
+
+}
+
+
+function closeModalOnOverlay(
+    event
+) {
+
+    if (
+        event.target ===
+        event.currentTarget
+    ) {
+
+        closeModal();
+
+    }
+
+}
+
+
+// ==================================================
+// ㉞ Toast
+// ==================================================
+
+function showToast(
+    message,
+    type = "info"
+) {
+
+    const container =
+        document.getElementById(
+            "toast-container"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    const icon =
+        type === "success"
+            ? "fa-circle-check"
+            : type === "error"
+                ? "fa-circle-exclamation"
+                : "fa-circle-info";
+
+
+    const toast =
+        document.createElement(
+            "div"
+        );
+
+
+    toast.className =
+        "flex max-w-sm items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-xl";
+
+
+    toast.innerHTML = `
+
+        <i class="fa-solid ${icon}"></i>
+
+        <span>
+            ${escapeHtml(message)}
+        </span>
+
+    `;
+
+
+    container.appendChild(
+        toast
+    );
+
+
+    setTimeout(
+        () => {
+
+            toast.remove();
+
+        },
+        4000
+    );
+
+}
+
+
+// ==================================================
+// ㉟ Loading
+// ==================================================
+
+function showLoading() {
+
+    const loading =
+        document.getElementById(
+            "global-loading"
+        );
+
+
+    if (loading) {
+
+        loading.classList.remove(
+            "hidden"
+        );
+
+        loading.classList.add(
+            "flex"
+        );
+
+    }
+
+}
+
+
+function hideLoading() {
+
+    const loading =
+        document.getElementById(
+            "global-loading"
+        );
+
+
+    if (loading) {
+
+        loading.classList.add(
+            "hidden"
+        );
+
+        loading.classList.remove(
+            "flex"
+        );
+
+    }
+
+
+    const appLoading =
+        document.getElementById(
+            "app-loading"
+        );
+
+
+    if (appLoading) {
+
+        appLoading.classList.add(
+            "hidden"
+        );
+
+    }
+
+}
+
+
+// ==================================================
+// ㊱ ユーティリティ
+// ==================================================
 
 function setText(
     id,
@@ -4803,131 +3141,48 @@ function setText(
     if (element) {
 
         element.textContent =
-            value;
+            value ??
+            "";
 
     }
 
 }
 
 
-function healthMetric(
-    label,
-    value
+function setAvatar(
+    id,
+    username
 ) {
 
-    return `
-        <div class="health-metric">
-
-            <div class="health-metric-label">
-                ${escapeHtml(label)}
-            </div>
-
-            <div class="health-metric-value">
-                ${escapeHtml(
-                    String(value || "-")
-                )}
-            </div>
-
-        </div>
-    `;
-
-}
+    const element =
+        document.getElementById(
+            id
+        );
 
 
-function formatBloodPressure(
-    systolic,
-    diastolic
-) {
-
-    if (
-        systolic === null ||
-        systolic === undefined ||
-        systolic === "" ||
-        diastolic === null ||
-        diastolic === undefined ||
-        diastolic === ""
-    ) {
-
-        return "-";
-
+    if (!element) {
+        return;
     }
 
 
-    return `${systolic}/${diastolic}`;
-
-}
-
-
-function formatDate(
-    value
-) {
-
-    if (!value) {
-        return "-";
-    }
-
-
-    const date =
-        new Date(value);
-
-
-    if (
-        Number.isNaN(
-            date.getTime()
+    const name =
+        String(
+            username ||
+            "?"
         )
-    ) {
-
-        return "-";
-
-    }
+            .trim();
 
 
-    return new Intl.DateTimeFormat(
-        "ja-JP",
-        {
-            year: "numeric",
-            month: "long",
-            day: "numeric"
-        }
-    ).format(date);
-
-}
+    const first =
+        name.charAt(0)
+            .toUpperCase();
 
 
-function formatDateTime(
-    value
-) {
-
-    if (!value) {
-        return "-";
-    }
-
-
-    const date =
-        new Date(value);
-
-
-    if (
-        Number.isNaN(
-            date.getTime()
-        )
-    ) {
-
-        return "-";
-
-    }
-
-
-    return new Intl.DateTimeFormat(
-        "ja-JP",
-        {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit"
-        }
-    ).format(date);
+    element.innerHTML =
+        escapeHtml(
+            first ||
+            "?"
+        );
 
 }
 
@@ -4937,8 +3192,10 @@ function escapeHtml(
 ) {
 
     if (
-        value === null ||
-        value === undefined
+        value ===
+        null ||
+        value ===
+        undefined
     ) {
 
         return "";
@@ -4971,188 +3228,3199 @@ function escapeHtml(
 }
 
 
-function escapeAttribute(
+function formatDate(
     value
 ) {
 
-    return escapeHtml(
-        value
+    if (!value) {
+        return "--";
+    }
+
+
+    const date =
+        new Date(value);
+
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+
+        return "--";
+
+    }
+
+
+    return date.toLocaleDateString(
+        "ja-JP",
+        {
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+        }
     );
 
 }
 
 
+function formatDateTime(
+    value
+) {
+
+    if (!value) {
+        return "--";
+    }
+
+
+    const date =
+        new Date(value);
+
+
+    if (
+        Number.isNaN(
+            date.getTime()
+        )
+    ) {
+
+        return "--";
+
+    }
+
+
+    return date.toLocaleString(
+        "ja-JP",
+        {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
+
+}
+
+
+// ==================================================
+// app.js 前半ここまで
+// ==================================================
+// ============================================================
+// まいへるす - app.js
+// 完成版
+// ============================================================
+
+// ============================================================
+// ① Supabase設定
+// ============================================================
+
+const SUPABASE_URL =
+    "https://ufmcloqjcolpvzhnobgg.supabase.co";
+
+const SUPABASE_ANON_KEY =
+    "sb_publishable_mxebX3u8pw2XfPGwtzQmyg_aB2fUSWy";
+
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_ANON_KEY
+    );
+
+
+// ============================================================
+// ② グローバル変数
+// ============================================================
+
+let currentUser = null;
+let currentProfile = null;
+
+let medications = [];
+let medicationLogs = [];
+let healthRecords = [];
+let diagnoses = [];
+let medicalVisits = [];
+let appointments = [];
+let allergies = [];
+let friends = [];
+let friendRequests = [];
+let notifications = [];
+
+let selectedChatFriend = null;
+let messageSubscription = null;
+let notificationSubscription = null;
+
+let currentView = "dashboard";
+
+
+// ============================================================
+// ③ DOM取得
+// ============================================================
+
+const $ = (id) => document.getElementById(id);
+
+
+// ============================================================
+// ④ 初期化
+// ============================================================
+
+document.addEventListener("DOMContentLoaded", async () => {
+
+    try {
+
+        setupAuthEvents();
+        setupGlobalEvents();
+
+        const {
+            data: {
+                session
+            }
+        } = await supabaseClient.auth.getSession();
+
+        if (session && session.user) {
+
+            currentUser = session.user;
+
+            await initializeApplication();
+
+        } else {
+
+            showAuthScreen();
+
+        }
+
+    } catch (error) {
+
+        console.error("初期化エラー:", error);
+
+        showAuthScreen();
+
+    } finally {
+
+        hideAppLoading();
+
+    }
+
+});
+
+
+// ============================================================
+// ⑤ Authイベント
+// ============================================================
+
+function setupAuthEvents() {
+
+    const loginForm =
+        $("login-form-element");
+
+    const registerForm =
+        $("register-form-element");
+
+    const showRegisterButton =
+        $("show-register-button");
+
+    const showLoginButton =
+        $("show-login-button");
+
+    if (loginForm) {
+
+        loginForm.addEventListener(
+            "submit",
+            handleLogin
+        );
+
+    }
+
+    if (registerForm) {
+
+        registerForm.addEventListener(
+            "submit",
+            handleRegister
+        );
+
+    }
+
+    if (showRegisterButton) {
+
+        showRegisterButton.addEventListener(
+            "click",
+            showRegisterForm
+        );
+
+    }
+
+    if (showLoginButton) {
+
+        showLoginButton.addEventListener(
+            "click",
+            showLoginForm
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// ⑥ グローバルイベント
+// ============================================================
+
+function setupGlobalEvents() {
+
+    const logoutButton =
+        $("logout-button");
+
+    if (logoutButton) {
+
+        logoutButton.addEventListener(
+            "click",
+            handleLogout
+        );
+
+    }
+
+    const mobileMenuButton =
+        $("mobile-menu-button");
+
+    if (mobileMenuButton) {
+
+        mobileMenuButton.addEventListener(
+            "click",
+            toggleMobileMenu
+        );
+
+    }
+
+    const sidebarOverlay =
+        $("sidebar-overlay");
+
+    if (sidebarOverlay) {
+
+        sidebarOverlay.addEventListener(
+            "click",
+            closeMobileMenu
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// ⑦ Loading
+// ============================================================
+
+function hideAppLoading() {
+
+    const loading =
+        $("app-loading");
+
+    if (!loading) return;
+
+    loading.classList.add("hidden");
+
+}
+
+
+function showGlobalLoading() {
+
+    const loading =
+        $("global-loading");
+
+    if (!loading) return;
+
+    loading.classList.remove("hidden");
+    loading.classList.add("flex");
+
+}
+
+
+function hideGlobalLoading() {
+
+    const loading =
+        $("global-loading");
+
+    if (!loading) return;
+
+    loading.classList.add("hidden");
+    loading.classList.remove("flex");
+
+}
+
+
+// ============================================================
+// ⑧ Auth画面
+// ============================================================
+
+function showAuthScreen() {
+
+    const auth =
+        $("auth-screen");
+
+    const app =
+        $("app");
+
+    const appContainer =
+        $("app-container");
+
+    if (auth) {
+
+        auth.classList.remove("hidden");
+
+    }
+
+    if (app) {
+
+        app.classList.add("hidden");
+
+    }
+
+    if (appContainer) {
+
+        appContainer.classList.add("hidden");
+
+    }
+
+}
+
+
+function hideAuthScreen() {
+
+    const auth =
+        $("auth-screen");
+
+    if (auth) {
+
+        auth.classList.add("hidden");
+
+    }
+
+}
+
+
+function showRegisterForm() {
+
+    const login =
+        $("login-form");
+
+    const register =
+        $("register-form");
+
+    if (login) {
+
+        login.classList.add("hidden");
+
+    }
+
+    if (register) {
+
+        register.classList.remove("hidden");
+
+    }
+
+}
+
+
+function showLoginForm() {
+
+    const login =
+        $("login-form");
+
+    const register =
+        $("register-form");
+
+    if (register) {
+
+        register.classList.add("hidden");
+
+    }
+
+    if (login) {
+
+        login.classList.remove("hidden");
+
+    }
+
+}
+
+
+// ============================================================
+// ⑨ 会員登録
+// ============================================================
+
+async function handleRegister(event) {
+
+    event.preventDefault();
+
+    const username =
+        $("register-username")?.value.trim();
+
+    const email =
+        $("register-email")?.value.trim();
+
+    const password =
+        $("register-password")?.value;
+
+    const passwordConfirm =
+        $("register-password-confirm")?.value;
+
+    if (!username || !email || !password) {
+
+        showToast(
+            "すべての項目を入力してください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+    if (password !== passwordConfirm) {
+
+        showToast(
+            "パスワードが一致していません。",
+            "error"
+        );
+
+        return;
+
+    }
+
+    if (password.length < 6) {
+
+        showToast(
+            "パスワードは6文字以上にしてください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+    showGlobalLoading();
+
+    try {
+
+        // ----------------------------------------------------
+        // Supabase Auth登録
+        // ----------------------------------------------------
+
+        const {
+            data,
+            error
+        } = await supabaseClient.auth.signUp({
+
+            email,
+            password
+
+        });
+
+        if (error) {
+
+            throw error;
+
+        }
+
+        // ----------------------------------------------------
+        // メール確認が必要な場合
+        // ----------------------------------------------------
+
+        if (!data.user) {
+
+            showToast(
+                "会員登録を完了できませんでした。",
+                "error"
+            );
+
+            return;
+
+        }
+
+        // ----------------------------------------------------
+        // profiles作成
+        // ----------------------------------------------------
+
+        const {
+            error: profileError
+        } = await supabaseClient
+            .from("profiles")
+            .upsert({
+
+                id: data.user.id,
+                username: username
+
+            }, {
+
+                onConflict: "id"
+
+            });
+
+        if (profileError) {
+
+            console.warn(
+                "プロフィール作成エラー:",
+                profileError
+            );
+
+        }
+
+        showToast(
+            "会員登録が完了しました。メール確認が必要な場合は確認してください。",
+            "success"
+        );
+
+        showLoginForm();
+
+        const loginEmail =
+            $("login-email");
+
+        if (loginEmail) {
+
+            loginEmail.value = email;
+
+        }
+
+    } catch (error) {
+
+        console.error(
+            "会員登録エラー:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "会員登録に失敗しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideGlobalLoading();
+
+    }
+
+}
+
+
+// ============================================================
+// ⑩ ログイン
+// ============================================================
+
+async function handleLogin(event) {
+
+    event.preventDefault();
+
+    const email =
+        $("login-email")?.value.trim();
+
+    const password =
+        $("login-password")?.value;
+
+    if (!email || !password) {
+
+        showToast(
+            "メールアドレスとパスワードを入力してください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+    showGlobalLoading();
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient.auth.signInWithPassword({
+
+            email,
+            password
+
+        });
+
+        if (error) {
+
+            throw error;
+
+        }
+
+        currentUser =
+            data.user;
+
+        await initializeApplication();
+
+        showToast(
+            "ログインしました。",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "ログインエラー:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "ログインに失敗しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideGlobalLoading();
+
+    }
+
+}
+
+
+// ============================================================
+// ⑪ ログアウト
+// ============================================================
+
+async function handleLogout() {
+
+    const confirmed =
+        confirm(
+            "ログアウトしますか？"
+        );
+
+    if (!confirmed) return;
+
+    showGlobalLoading();
+
+    try {
+
+        if (messageSubscription) {
+
+            await supabaseClient
+                .removeChannel(
+                    messageSubscription
+                );
+
+            messageSubscription = null;
+
+        }
+
+        if (notificationSubscription) {
+
+            await supabaseClient
+                .removeChannel(
+                    notificationSubscription
+                );
+
+            notificationSubscription = null;
+
+        }
+
+        const {
+            error
+        } = await supabaseClient.auth.signOut();
+
+        if (error) {
+
+            throw error;
+
+        }
+
+        currentUser = null;
+        currentProfile = null;
+
+        medications = [];
+        medicationLogs = [];
+        healthRecords = [];
+        diagnoses = [];
+        medicalVisits = [];
+        appointments = [];
+        allergies = [];
+        friends = [];
+        friendRequests = [];
+        notifications = [];
+
+        showAuthScreen();
+
+        showToast(
+            "ログアウトしました。",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "ログアウトエラー:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "ログアウトに失敗しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideGlobalLoading();
+
+    }
+
+}
+
+
+// ============================================================
+// ⑫ アプリ初期化
+// ============================================================
+
+async function initializeApplication() {
+
+    if (!currentUser) {
+
+        showAuthScreen();
+
+        return;
+
+    }
+
+    hideAuthScreen();
+
+    const app =
+        $("app");
+
+    const appContainer =
+        $("app-container");
+
+    if (app) {
+
+        app.classList.remove("hidden");
+
+    }
+
+    if (appContainer) {
+
+        appContainer.classList.remove("hidden");
+
+    }
+
+    await loadProfile();
+
+    await Promise.allSettled([
+
+        loadMedications(),
+        loadMedicationLogs(),
+        loadHealthRecords(),
+        loadDiagnoses(),
+        loadMedicalVisits(),
+        loadAppointments(),
+        loadAllergies(),
+        loadFriends(),
+        loadFriendRequests(),
+        loadNotifications()
+
+    ]);
+
+    updateUserUI();
+
+    updateDashboard();
+
+    subscribeToRealtime();
+
+    showView(
+        currentView || "dashboard"
+    );
+
+}
+
+
+// ============================================================
+// ⑬ プロフィール読み込み
+// ============================================================
+
+async function loadProfile() {
+
+    if (!currentUser) return;
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("profiles")
+            .select("*")
+            .eq("id", currentUser.id)
+            .maybeSingle();
+
+        if (error) {
+
+            console.warn(
+                "プロフィール読み込みエラー:",
+                error
+            );
+
+            return;
+
+        }
+
+        currentProfile =
+            data || {
+
+                id: currentUser.id,
+                username:
+                    currentUser.email?.split("@")[0] ||
+                    "ユーザー"
+
+            };
+
+    } catch (error) {
+
+        console.error(
+            "プロフィール読み込みエラー:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// ⑭ ユーザーUI更新
+// ============================================================
+
+function updateUserUI() {
+
+    if (!currentUser) return;
+
+    const username =
+        currentProfile?.username ||
+        currentProfile?.display_name ||
+        currentUser.email?.split("@")[0] ||
+        "ユーザー";
+
+    const email =
+        currentUser.email ||
+        "-";
+
+    const avatarText =
+        getInitial(username);
+
+    const elements = [
+
+        ["sidebar-username", username],
+        ["sidebar-email", email],
+        ["header-username", username],
+        ["settings-email", email],
+        ["account-email", email]
+
+    ];
+
+    elements.forEach(
+        ([id, value]) => {
+
+            const el = $(id);
+
+            if (el) {
+
+                el.textContent =
+                    value;
+
+            }
+
+        }
+    );
+
+    [
+        "sidebar-avatar",
+        "header-avatar",
+        "settings-avatar"
+    ].forEach(id => {
+
+        const el = $(id);
+
+        if (!el) return;
+
+        el.textContent =
+            avatarText;
+
+    });
+
+    const profileUsername =
+        $("profile-username");
+
+    if (
+        profileUsername &&
+        currentProfile
+    ) {
+
+        profileUsername.value =
+            currentProfile.username || "";
+
+    }
+
+    const displayName =
+        $("profile-display-name");
+
+    if (
+        displayName &&
+        currentProfile
+    ) {
+
+        displayName.value =
+            currentProfile.display_name || "";
+
+    }
+
+    const gender =
+        $("profile-gender");
+
+    if (
+        gender &&
+        currentProfile
+    ) {
+
+        gender.value =
+            currentProfile.gender || "";
+
+    }
+
+    const age =
+        $("profile-age");
+
+    if (
+        age &&
+        currentProfile
+    ) {
+
+        age.value =
+            currentProfile.age ?? "";
+
+    }
+
+    const height =
+        $("profile-height");
+
+    if (
+        height &&
+        currentProfile
+    ) {
+
+        height.value =
+            currentProfile.height ?? "";
+
+    }
+
+    const weight =
+        $("profile-weight");
+
+    if (
+        weight &&
+        currentProfile
+    ) {
+
+        weight.value =
+            currentProfile.weight ?? "";
+
+    }
+
+}
+
+
+// ============================================================
+// ⑮ イニシャル
+// ============================================================
+
+function getInitial(value) {
+
+    if (!value) return "?";
+
+    return String(value)
+        .trim()
+        .charAt(0)
+        .toUpperCase();
+
+}
+
+
+// ============================================================
+// ⑯ View切り替え
+// ============================================================
+
+function showView(viewName) {
+
+    currentView =
+        viewName;
+
+    document
+        .querySelectorAll(".view-section")
+        .forEach(section => {
+
+            section.classList.add(
+                "hidden"
+            );
+
+        });
+
+    const target =
+        $(`view-${viewName}`);
+
+    if (target) {
+
+        target.classList.remove(
+            "hidden"
+        );
+
+    }
+
+    document
+        .querySelectorAll(".nav-btn")
+        .forEach(button => {
+
+            button.classList.remove(
+                "active"
+            );
+
+            if (
+                button.dataset.view ===
+                viewName
+            ) {
+
+                button.classList.add(
+                    "active"
+                );
+
+            }
+
+        });
+
+    updatePageHeader(
+        viewName
+    );
+
+    closeMobileMenu();
+
+    // 表示時に最新データを読み直す
+    refreshViewData(viewName);
+
+}
+
+
+// ============================================================
+// ⑰ Viewごとの更新
+// ============================================================
+
+async function refreshViewData(viewName) {
+
+    if (!currentUser) return;
+
+    switch (viewName) {
+
+        case "dashboard":
+
+            updateDashboard();
+
+            break;
+
+        case "medications":
+
+            await loadMedications();
+
+            break;
+
+        case "medication-logs":
+
+            await loadMedicationLogs();
+
+            break;
+
+        case "health":
+
+            await loadHealthRecords();
+
+            break;
+
+        case "diagnoses":
+
+            await loadDiagnoses();
+
+            break;
+
+        case "visits":
+
+            await loadMedicalVisits();
+
+            break;
+
+        case "appointments":
+
+            await loadAppointments();
+
+            break;
+
+        case "allergies":
+
+            await loadAllergies();
+
+            break;
+
+        case "friends":
+
+            await loadFriends();
+            await loadFriendRequests();
+
+            break;
+
+        case "messages":
+
+            await loadMessageFriends();
+
+            break;
+
+        case "notifications":
+
+            await loadNotifications();
+
+            break;
+
+        case "settings":
+
+            await loadProfile();
+
+            updateUserUI();
+
+            break;
+
+    }
+
+}
+
+
+// ============================================================
+// ⑱ ページヘッダー
+// ============================================================
+
+function updatePageHeader(viewName) {
+
+    const titles = {
+
+        dashboard: [
+            "ホーム",
+            "今日の健康状態を確認しましょう"
+        ],
+
+        medications: [
+            "お薬",
+            "現在使用しているお薬を管理します"
+        ],
+
+        "medication-logs": [
+            "服薬記録",
+            "服用したお薬を記録・確認できます"
+        ],
+
+        reminders: [
+            "服薬リマインダー",
+            "お薬を飲む時間を管理します"
+        ],
+
+        health: [
+            "健康記録",
+            "日々の健康状態を記録します"
+        ],
+
+        diagnoses: [
+            "診断・病歴",
+            "診断された病気や病歴を管理します"
+        ],
+
+        visits: [
+            "診察記録",
+            "病院・クリニックでの診察記録を管理します"
+        ],
+
+        appointments: [
+            "通院予定",
+            "病院・クリニックの予定を管理します"
+        ],
+
+        allergies: [
+            "アレルギー",
+            "薬・食物などのアレルギー情報を管理します"
+        ],
+
+        friends: [
+            "友達",
+            "友達と健康情報を共有できます"
+        ],
+
+        messages: [
+            "メッセージ",
+            "友達と直接メッセージをやり取りできます"
+        ],
+
+        "shared-medications": [
+            "共有されたお薬",
+            "友達から共有されたお薬を確認できます"
+        ],
+
+        notifications: [
+            "通知",
+            "友達申請や共有などのお知らせ"
+        ],
+
+        profile: [
+            "プロフィール",
+            "あなたのプロフィールを管理します"
+        ],
+
+        settings: [
+            "設定",
+            "プロフィールやアプリの設定を管理します"
+        ]
+
+    };
+
+    const data =
+        titles[viewName] ||
+        titles.dashboard;
+
+    const title =
+        $("page-title");
+
+    const subtitle =
+        $("page-subtitle");
+
+    if (title) {
+
+        title.textContent =
+            data[0];
+
+    }
+
+    if (subtitle) {
+
+        subtitle.textContent =
+            data[1];
+
+    }
+
+}
+
+
+// ============================================================
+// ⑲ モバイルメニュー
+// ============================================================
+
+function toggleMobileMenu() {
+
+    const sidebar =
+        $("sidebar");
+
+    const overlay =
+        $("sidebar-overlay");
+
+    const mobileOverlay =
+        $("mobile-overlay");
+
+    if (sidebar) {
+
+        sidebar.classList.toggle(
+            "mobile-open"
+        );
+
+    }
+
+    if (overlay) {
+
+        overlay.classList.toggle(
+            "hidden"
+        );
+
+    }
+
+    if (mobileOverlay) {
+
+        mobileOverlay.classList.toggle(
+            "hidden"
+        );
+
+    }
+
+}
+
+
+function closeMobileMenu() {
+
+    const sidebar =
+        $("sidebar");
+
+    const overlay =
+        $("sidebar-overlay");
+
+    const mobileOverlay =
+        $("mobile-overlay");
+
+    if (sidebar) {
+
+        sidebar.classList.remove(
+            "mobile-open"
+        );
+
+    }
+
+    if (overlay) {
+
+        overlay.classList.add(
+            "hidden"
+        );
+
+    }
+
+    if (mobileOverlay) {
+
+        mobileOverlay.classList.add(
+            "hidden"
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// ⑳ お薬読み込み
+// ============================================================
+
+async function loadMedications() {
+
+    if (!currentUser) return;
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("medications")
+            .select("*")
+            .eq("user_id", currentUser.id)
+            .order(
+                "created_at",
+                {
+                    ascending: false
+                }
+            );
+
+        if (error) {
+
+            console.warn(
+                "お薬読み込みエラー:",
+                error
+            );
+
+            medications = [];
+
+            renderMedications();
+
+            return;
+
+        }
+
+        medications =
+            data || [];
+
+        renderMedications();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(
+            "お薬読み込みエラー:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// ㉑ お薬表示
+// ============================================================
+
+function renderMedications() {
+
+    const container =
+        $("medications-list");
+
+    if (!container) return;
+
+    if (!medications.length) {
+
+        container.innerHTML = `
+
+            <div class="content-card sm:col-span-2 xl:col-span-3">
+
+                <div class="empty-state">
+
+                    <i class="fa-solid fa-pills"></i>
+
+                    <p>
+                        登録されているお薬はありません。
+                    </p>
+
+                    <button
+                        class="primary-button mt-4"
+                        onclick="openMedicationModal()"
+                    >
+                        <i class="fa-solid fa-plus"></i>
+                        お薬を登録
+                    </button>
+
+                </div>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    container.innerHTML =
+        medications.map(
+            medication =>
+                createMedicationCard(
+                    medication
+                )
+        ).join("");
+
+}
+
+
+// ============================================================
+// ㉒ お薬カード
+// ============================================================
+
+function createMedicationCard(
+    medication
+) {
+
+    const name =
+        escapeHtml(
+            medication.name ||
+            "名称未設定"
+        );
+
+    const dosage =
+        escapeHtml(
+            medication.dosage ||
+            medication.amount ||
+            ""
+        );
+
+    const frequency =
+        escapeHtml(
+            medication.frequency ||
+            ""
+        );
+
+    const notes =
+        escapeHtml(
+            medication.notes ||
+            ""
+        );
+
+    const quantity =
+        medication.quantity ??
+        medication.stock ??
+        "";
+
+    return `
+
+        <div class="content-card">
+
+            <div class="flex items-start justify-between gap-4">
+
+                <div class="flex items-start gap-3">
+
+                    <div
+                        class="flex h-12 w-12 shrink-0
+                               items-center justify-center
+                               rounded-xl bg-blue-50
+                               text-blue-600"
+                    >
+                        <i class="fa-solid fa-pills"></i>
+                    </div>
+
+                    <div class="min-w-0">
+
+                        <h3
+                            class="font-extrabold
+                                   text-slate-900"
+                        >
+                            ${name}
+                        </h3>
+
+                        ${
+                            dosage
+                                ? `
+                                <p class="mt-1 text-sm text-slate-500">
+                                    ${dosage}
+                                </p>
+                                `
+                                : ""
+                        }
+
+                    </div>
+
+                </div>
+
+                <button
+                    type="button"
+                    class="icon-button text-red-500"
+                    onclick="deleteMedication('${medication.id}')"
+                    title="削除"
+                >
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+
+            </div>
+
+            <div class="mt-5 space-y-2">
+
+                ${
+                    frequency
+                        ? `
+                        <div class="flex items-center gap-2 text-sm">
+                            <i class="fa-regular fa-clock text-slate-400"></i>
+                            <span class="text-slate-600">
+                                ${frequency}
+                            </span>
+                        </div>
+                        `
+                        : ""
+                }
+
+                ${
+                    quantity !== ""
+                        ? `
+                        <div class="flex items-center gap-2 text-sm">
+                            <i class="fa-solid fa-box text-slate-400"></i>
+                            <span class="text-slate-600">
+                                残量：${escapeHtml(quantity)}
+                            </span>
+                        </div>
+                        `
+                        : ""
+                }
+
+                ${
+                    notes
+                        ? `
+                        <div class="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+                            ${notes}
+                        </div>
+                        `
+                        : ""
+                }
+
+            </div>
+
+            <div class="mt-5 flex gap-2">
+
+                <button
+                    type="button"
+                    class="secondary-button flex-1"
+                    onclick="openMedicationLogModal('${medication.id}')"
+                >
+                    <i class="fa-solid fa-check"></i>
+                    服薬記録
+                </button>
+
+            </div>
+
+        </div>
+
+    `;
+
+}
+
+
+// ============================================================
+// ㉓ お薬登録モーダル
+// ============================================================
+
+function openMedicationModal() {
+
+    openModal(`
+
+        <div class="p-6">
+
+            <div class="mb-6 flex items-center justify-between">
+
+                <div>
+
+                    <h2 class="text-xl font-extrabold text-slate-900">
+                        お薬を登録
+                    </h2>
+
+                    <p class="mt-1 text-xs text-slate-400">
+                        現在使用しているお薬を登録します。
+                    </p>
+
+                </div>
+
+                <button
+                    type="button"
+                    class="icon-button"
+                    onclick="closeModal()"
+                >
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
+
+            <form
+                id="medication-form"
+                onsubmit="saveMedication(event)"
+            >
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        お薬の名前
+                    </label>
+
+                    <input
+                        id="medication-name"
+                        type="text"
+                        class="input-field"
+                        placeholder="例：カロナール"
+                        required
+                    >
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        用量・規格
+                    </label>
+
+                    <input
+                        id="medication-dosage"
+                        type="text"
+                        class="input-field"
+                        placeholder="例：200mg"
+                    >
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        服用方法・頻度
+                    </label>
+
+                    <input
+                        id="medication-frequency"
+                        type="text"
+                        class="input-field"
+                        placeholder="例：1日3回 食後"
+                    >
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="form-label">
+                        残量
+                    </label>
+
+                    <input
+                        id="medication-quantity"
+                        type="number"
+                        min="0"
+                        class="input-field"
+                        placeholder="例：30"
+                    >
+
+                </div>
+
+                <div class="mb-5">
+
+                    <label class="form-label">
+                        メモ
+                    </label>
+
+                    <textarea
+                        id="medication-notes"
+                        class="input-field"
+                        rows="3"
+                        placeholder="医師からの指示など"
+                    ></textarea>
+
+                </div>
+
+                <div class="flex justify-end gap-2">
+
+                    <button
+                        type="button"
+                        class="secondary-button"
+                        onclick="closeModal()"
+                    >
+                        キャンセル
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="primary-button"
+                    >
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        登録する
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    `);
+
+}
+
+
+// ============================================================
+// ㉔ お薬保存
+// ============================================================
+
+async function saveMedication(event) {
+
+    event.preventDefault();
+
+    if (!currentUser) {
+
+        showToast(
+            "ログインしてください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+    const name =
+        $("medication-name")?.value.trim();
+
+    const dosage =
+        $("medication-dosage")?.value.trim();
+
+    const frequency =
+        $("medication-frequency")?.value.trim();
+
+    const quantityValue =
+        $("medication-quantity")?.value;
+
+    const notes =
+        $("medication-notes")?.value.trim();
+
+    if (!name) {
+
+        showToast(
+            "お薬の名前を入力してください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+    showGlobalLoading();
+
+    try {
+
+        const insertData = {
+
+            user_id: currentUser.id,
+
+            name,
+
+            dosage: dosage || null,
+
+            frequency: frequency || null,
+
+            quantity:
+                quantityValue === ""
+                    ? null
+                    : Number(quantityValue),
+
+            notes: notes || null
+
+        };
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("medications")
+            .insert(insertData)
+            .select()
+            .single();
+
+        if (error) {
+
+            throw error;
+
+        }
+
+        medications.unshift(
+            data
+        );
+
+        renderMedications();
+
+        updateDashboard();
+
+        closeModal();
+
+        showToast(
+            "お薬を登録しました。",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "お薬登録エラー:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "お薬の登録に失敗しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideGlobalLoading();
+
+    }
+
+}
+
+
+// ============================================================
+// ㉕ お薬削除
+// ============================================================
+
+async function deleteMedication(
+    medicationId
+) {
+
+    if (!medicationId) return;
+
+    const confirmed =
+        confirm(
+            "このお薬を削除しますか？"
+        );
+
+    if (!confirmed) return;
+
+    showGlobalLoading();
+
+    try {
+
+        const {
+            error
+        } = await supabaseClient
+            .from("medications")
+            .delete()
+            .eq("id", medicationId)
+            .eq("user_id", currentUser.id);
+
+        if (error) {
+
+            throw error;
+
+        }
+
+        medications =
+            medications.filter(
+                medication =>
+                    medication.id !==
+                    medicationId
+            );
+
+        renderMedications();
+
+        updateDashboard();
+
+        showToast(
+            "お薬を削除しました。",
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "お薬削除エラー:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "お薬の削除に失敗しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideGlobalLoading();
+
+    }
+
+}
+
+
+// ============================================================
+// ㉖ 服薬記録読み込み
+// ============================================================
+
+async function loadMedicationLogs() {
+
+    if (!currentUser) return;
+
+    try {
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("medication_logs")
+            .select("*")
+            .eq("user_id", currentUser.id)
+            .order(
+                "taken_at",
+                {
+                    ascending: false
+                }
+            );
+
+        if (error) {
+
+            console.warn(
+                "服薬記録読み込みエラー:",
+                error
+            );
+
+            medicationLogs = [];
+
+            renderMedicationLogs();
+
+            return;
+
+        }
+
+        medicationLogs =
+            data || [];
+
+        renderMedicationLogs();
+
+        updateDashboard();
+
+    } catch (error) {
+
+        console.error(
+            "服薬記録読み込みエラー:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================================
+// ㉗ 服薬記録表示
+// ============================================================
+
+function renderMedicationLogs() {
+
+    const container =
+        $("medication-logs-list");
+
+    if (!container) return;
+
+    if (!medicationLogs.length) {
+
+        container.innerHTML = `
+
+            <div class="empty-state">
+
+                <i class="fa-solid fa-check-double"></i>
+
+                <p>
+                    まだ服薬記録がありません。
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    container.innerHTML =
+        medicationLogs
+            .map(log => {
+
+                const medication =
+                    medications.find(
+                        item =>
+                            item.id ===
+                            log.medication_id
+                    );
+
+                const medicationName =
+                    medication?.name ||
+                    log.medication_name ||
+                    "お薬";
+
+                const date =
+                    formatDateTime(
+                        log.taken_at ||
+                        log.created_at
+                    );
+
+                return `
+
+                    <div
+                        class="flex items-center
+                               justify-between gap-4
+                               p-4"
+                    >
+
+                        <div
+                            class="flex items-center
+                                   gap-3"
+                        >
+
+                            <div
+                                class="flex h-10 w-10
+                                       items-center
+                                       justify-center
+                                       rounded-xl
+                                       bg-emerald-50
+                                       text-emerald-600"
+                            >
+                                <i class="fa-solid fa-check"></i>
+                            </div>
+
+                            <div>
+
+                                <div
+                                    class="font-bold
+                                           text-slate-800"
+                                >
+                                    ${escapeHtml(
+                                        medicationName
+                                    )}
+                                </div>
+
+                                <div
+                                    class="mt-1 text-xs
+                                           text-slate-400"
+                                >
+                                    ${date}
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                `;
+
+            })
+            .join("");
+
+}
+
+
+// ============================================================
+// ㉘ 服薬記録モーダル
+// ============================================================
+
+function openMedicationLogModal(
+    medicationId = ""
+) {
+
+    const options =
+        medications
+            .map(
+                medication => `
+
+                    <option
+                        value="${medication.id}"
+                        ${
+                            medication.id ===
+                            medicationId
+                                ? "selected"
+                                : ""
+                        }
+                    >
+                        ${escapeHtml(
+                            medication.name ||
+                            "名称未設定"
+                        )}
+                    </option>
+
+                `
+            )
+            .join("");
+
+    openModal(`
+
+        <div class="p-6">
+
+            <div class="mb-6 flex items-center justify-between">
+
+                <div>
+
+                    <h2 class="text-xl font-extrabold text-slate-900">
+                        服薬を記録
+                    </h2>
+
+                    <p class="mt-1 text-xs text-slate-400">
+                        飲んだお薬を記録します。
+                    </p>
+
+                </div>
+
+                <button
+                    type="button"
+                    class="icon-button"
+                    onclick="closeModal()"
+                >
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+            </div>
+
+            ${
+                medications.length
+                    ? `
+
+                    <form
+                        id="medication-log-form"
+                        onsubmit="saveMedicationLog(event)"
+                    >
+
+                        <div class="mb-4">
+
+                            <label class="form-label">
+                                お薬
+                            </label>
+
+                            <select
+                                id="log-medication-id"
+                                class="input-field"
+                                required
+                            >
+
+                                <option value="">
+                                    お薬を選択してください
+                                </option>
+
+                                ${options}
+
+                            </select>
+
+                        </div>
+
+                        <div class="mb-4">
+
+                            <label class="form-label">
+                                服用日時
+                            </label>
+
+                            <input
+                                id="log-taken-at"
+                                type="datetime-local"
+                                class="input-field"
+                                value="${getCurrentDateTimeLocal()}"
+                                required
+                            >
+
+                        </div>
+
+                        <div class="mb-5">
+
+                            <label class="form-label">
+                                メモ
+                            </label>
+
+                            <textarea
+                                id="log-notes"
+                                class="input-field"
+                                rows="3"
+                                placeholder="体調など"
+                            ></textarea>
+
+                        </div>
+
+                        <div class="flex justify-end gap-2">
+
+                            <button
+                                type="button"
+                                class="secondary-button"
+                                onclick="closeModal()"
+                            >
+                                キャンセル
+                            </button>
+
+                            <button
+                                type="submit"
+                                class="primary-button"
+                            >
+                                <i class="fa-solid fa-check"></i>
+                                記録する
+                            </button>
+
+                        </div>
+
+                    </form>
+
+                    `
+                    : `
+
+                    <div class="empty-state">
+
+                        <i class="fa-solid fa-pills"></i>
+
+                        <p>
+                            先にお薬を登録してください。
+                        </p>
+
+                        <button
+                            type="button"
+                            class="primary-button mt-4"
+                            onclick="closeModal(); openMedicationModal();"
+                        >
+                            お薬を登録
+                        </button>
+
+                    </div>
+
+                    `
+            }
+
+        </div>
+
+    `);
+
+}
+
+
+// ============================================================
+// ㉙ 服薬記録保存
+// ============================================================
+
+async function saveMedicationLog(
+    event
+) {
+
+    event.preventDefault();
+
+    if (!currentUser) return;
+
+    const medicationId =
+        $("log-medication-id")?.value;
+
+    const takenAt =
+        $("log-taken-at")?.value;
+
+    const notes =
+        $("log-notes")?.value.trim();
+
+    if (!medicationId) {
+
+        showToast(
+            "お薬を選択してください。",
+            "error"
+        );
+
+        return;
+
+    }
+
+    showGlobalLoading();
+
+    try {
+
+        const medication =
+            medications.find(
+                item =>
+                    item.id ===
+                    medicationId
+            );
+
+        const insertData = {
+
+            user_id: currentUser.id,
+
+            medication_id:
+                medicationId,
+
+            taken_at:
+                takenAt
+                    ? new Date(takenAt).toISOString()
+                    : new Date().toISOString(),
+
+            notes:
+                notes || null
+
+        };
+
+        const {
+            data,
+            error
+        } = await supabaseClient
+            .from("medication_logs")
+            .insert(insertData)
+            .select()
+            .single();
+
+        if (error) {
+
+            throw error;
+
+        }
+
+        medicationLogs.unshift(
+            data
+        );
+
+        renderMedicationLogs();
+
+        updateDashboard();
+
+        closeModal();
+
+        showToast(
+            `${medication?.name || "お薬"}の服薬を記録しました。`,
+            "success"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "服薬記録エラー:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "服薬記録に失敗しました。",
+            "error"
+        );
+
+    } finally {
+
+        hideGlobalLoading();
+
+    }
+
+}
+
+
+// ============================================================
+// ㉚ ダッシュボード更新
+// ============================================================
+
+function updateDashboard() {
+
+    const medicationCount =
+        $("dashboard-medication-count");
+
+    if (medicationCount) {
+
+        medicationCount.textContent =
+            medications.length;
+
+    }
+
+    const todayLogs =
+        getTodayMedicationLogs();
+
+    const takenCount =
+        $("dashboard-taken-count");
+
+    if (takenCount) {
+
+        takenCount.textContent =
+            todayLogs.length;
+
+    }
+
+    const friendCount =
+        $("dashboard-friend-count");
+
+    if (friendCount) {
+
+        friendCount.textContent =
+            friends.length;
+
+    }
+
+    updateDashboardMedicationList();
+
+    updateDashboardAppointment();
+
+    updateNextAppointmentSummary();
+
+}
+
+
+// ============================================================
+// ㉛ 今日の服薬
+// ============================================================
+
+function getTodayMedicationLogs() {
+
+    const today =
+        new Date();
+
+    return medicationLogs.filter(
+        log => {
+
+            const date =
+                new Date(
+                    log.taken_at ||
+                    log.created_at
+                );
+
+            return (
+                date.getFullYear() ===
+                    today.getFullYear() &&
+
+                date.getMonth() ===
+                    today.getMonth() &&
+
+                date.getDate() ===
+                    today.getDate()
+            );
+
+        }
+    );
+
+}
+
+
+function updateDashboardMedicationList() {
+
+    const container =
+        $("dashboard-medication-list");
+
+    if (!container) return;
+
+    const todayLogs =
+        getTodayMedicationLogs();
+
+    if (!todayLogs.length) {
+
+        container.innerHTML = `
+
+            <div class="empty-state">
+
+                <i class="fa-solid fa-pills"></i>
+
+                <p>
+                    今日の服薬記録はありません
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+    container.innerHTML =
+        todayLogs
+            .slice(0, 5)
+            .map(log => {
+
+                const medication =
+                    medications.find(
+                        item =>
+                            item.id ===
+                            log.medication_id
+                    );
+
+                return `
+
+                    <div
+                        class="flex items-center
+                               gap-3 border-b
+                               border-slate-100
+                               p-4 last:border-0"
+                    >
+
+                        <div
+                            class="flex h-10 w-10
+                                   items-center
+                                   justify-center
+                                   rounded-xl
+                                   bg-emerald-50
+                                   text-emerald-600"
+                        >
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+
+                        <div class="flex-1">
+
+                            <div
+                                class="font-bold
+                                       text-slate-800"
+                            >
+                                ${escapeHtml(
+                                    medication?.name ||
+                                    "お薬"
+                                )}
+                            </div>
+
+                            <div
+                                class="mt-1 text-xs
+                                       text-slate-400"
+                            >
+                                ${formatTime(
+                                    log.taken_at ||
+                                    log.created_at
+                                )}
+                            </div>
+
+                        </div>
+
+                        <span
+                            class="rounded-full
+                                   bg-emerald-50
+                                   px-3 py-1
+                                   text-xs font-bold
+                                   text-emerald-600"
+                        >
+                            服用済み
+                        </span>
+
+                    </div>
+
+                `;
+
+            })
+            .join("");
+
+}
+
+
+// ============================================================
+// ㉜ 通院予定表示
+// ============================================================
+
+function updateDashboardAppointment() {
+
+    const container =
+        $("dashboard-appointment");
+
+    const container2 =
+        $("dashboard-appointment-list");
+
+    const upcoming =
+        getUpcomingAppointment();
+
+    const html =
+        upcoming
+            ? `
+
+                <div class="p-4">
+
+                    <div
+                        class="flex items-start
+                               gap-3"
+                    >
+
+                        <div
+                            class="flex h-11 w-11
+                                   items-center
+                                   justify-center
+                                   rounded-xl
+                                   bg-purple-50
+                                   text-purple-600"
+                        >
+                            <i class="fa-solid fa-calendar-check"></i>
+                        </div>
+
+                        <div>
+
+                            <div
+                                class="font-bold
+                                       text-slate-800"
+                            >
+                                ${escapeHtml(
+                                    upcoming.title ||
+                                    upcoming.hospital ||
+                                    "通院予定"
+                                )}
+                            </div>
+
+                            <div
+                                class="mt-1 text-xs
+                                       text-slate-400"
+                            >
+                                ${formatDateTime(
+                                    upcoming.appointment_date ||
+                                    upcoming.date ||
+                                    upcoming.scheduled_at
+                                )}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `
+            : `
+
+                <div class="empty-state">
+
+                    <i class="fa-regular fa-calendar"></i>
+
+                    <p>
+                        通院予定はありません
+                    </p>
+
+                </div>
+
+            `;
+
+    if (container) {
+
+        container.innerHTML =
+            html;
+
+    }
+
+    if (container2) {
+
+        container2.innerHTML =
+            html;
+
+    }
+
+}
+
+
+function getUpcomingAppointment() {
+
+    const now =
+        new Date();
+
+    return appointments
+        .filter(item => {
+
+            const value =
+                item.appointment_date ||
+                item.date ||
+                item.scheduled_at;
+
+            if (!value) return false;
+
+            return new Date(value) >= now;
+
+        })
+        .sort((a, b) => {
+
+            const dateA =
+                new Date(
+                    a.appointment_date ||
+                    a.date ||
+                    a.scheduled_at
+                );
+
+            const dateB =
+                new Date(
+                    b.appointment_date ||
+                    b.date ||
+                    b.scheduled_at
+                );
+
+            return dateA - dateB;
+
+        })[0] || null;
+
+}
+
+
+function updateNextAppointmentSummary() {
+
+    const element =
+        $("dashboard-next-appointment");
+
+    if (!element) return;
+
+    const upcoming =
+        getUpcomingAppointment();
+
+    if (!upcoming) {
+
+        element.textContent =
+            "未登録";
+
+        return;
+
+    }
+
+    const date =
+        upcoming.appointment_date ||
+        upcoming.date ||
+        upcoming.scheduled_at;
+
+    element.textContent =
+        formatDate(date);
+
+}
+
+
+// ============================================================
+// ㉝ モーダル
+// ============================================================
+
+function openModal(content) {
+
+    const overlay =
+        $("modal-overlay");
+
+    const modalContent =
+        $("modal-content");
+
+    if (!overlay || !modalContent) {
+
+        console.error(
+            "モーダル要素が見つかりません。"
+        );
+
+        return;
+
+    }
+
+    modalContent.innerHTML =
+        content;
+
+    overlay.classList.remove(
+        "hidden"
+    );
+
+    overlay.classList.add(
+        "flex"
+    );
+
+    document.body.classList.add(
+        "overflow-hidden"
+    );
+
+}
+
+
+function closeModal() {
+
+    const overlay =
+        $("modal-overlay");
+
+    const modalContent =
+        $("modal-content");
+
+    if (overlay) {
+
+        overlay.classList.add(
+            "hidden"
+        );
+
+        overlay.classList.remove(
+            "flex"
+        );
+
+    }
+
+    if (modalContent) {
+
+        modalContent.innerHTML =
+            "";
+
+    }
+
+    document.body.classList.remove(
+        "overflow-hidden"
+    );
+
+}
+
+
+function closeModalOnOverlay(
+    event
+) {
+
+    if (
+        event.target ===
+        event.currentTarget
+    ) {
+
+        closeModal();
+
+    }
+
+}
+
+
+// ============================================================
+// ㉞ Toast
+// ============================================================
+
 function showToast(
     message,
-    type = "info"
+    type = "success"
 ) {
 
     const container =
-        document.getElementById(
-            "toast-container"
-        );
-
+        $("toast-container");
 
     if (!container) {
-        return;
-    }
 
+        alert(message);
+
+        return;
+
+    }
 
     const toast =
         document.createElement(
             "div"
         );
 
-
-    toast.className =
-        `toast ${type}`;
-
-
     const icon =
-        type === "success"
-            ? "fa-circle-check"
-            : type === "error"
-            ? "fa-circle-xmark"
+        type === "error"
+            ? "fa-circle-exclamation"
             : type === "warning"
-            ? "fa-triangle-exclamation"
-            : "fa-circle-info";
+                ? "fa-triangle-exclamation"
+                : "fa-circle-check";
 
+    const color =
+        type === "error"
+            ? "red"
+            : type === "warning"
+                ? "amber"
+                : "emerald";
 
-    toast.innerHTML =
-        `
-        <i class="fa-solid ${icon}"></i>
+    toast.className = `
+        flex items-center gap-3
+        rounded-2xl border
+        border-${color}-100
+        bg-white px-4 py-3
+        shadow-xl
+        text-sm font-bold
+        text-slate-700
+    `;
 
-        <div class="text-sm font-medium text-slate-700">
+    toast.innerHTML = `
 
-            ${escapeHtml(
-                message
-            )}
+        <i
+            class="fa-solid ${icon}
+                   text-${color}-500"
+        ></i>
 
-        </div>
-        `;
+        <span>
+            ${escapeHtml(message)}
+        </span>
 
+    `;
 
     container.appendChild(
         toast
     );
 
+    setTimeout(() => {
 
-    setTimeout(
-        () => {
+        toast.style.opacity =
+            "0";
+
+        toast.style.transform =
+            "translateY(10px)";
+
+        toast.style.transition =
+            "all .2s ease";
+
+        setTimeout(() => {
 
             toast.remove();
 
-        },
-        3500
-    );
+        }, 200);
+
+    }, 3000);
 
 }
 
 
 // ============================================================
-// 56. Placeholder modal functions
+// ㉟ Realtime
 // ============================================================
 
-function openHealthModal() {
+function subscribeToRealtime() {
 
-    showToast(
-        "体調記録画面は次の実装で追加します。",
-        "info"
-    );
+    if (!currentUser) return;
 
-}
+    // --------------------------------------------------------
+    // メッセージ
+    // --------------------------------------------------------
 
+    if (messageSubscription) {
 
-function openMedicationModal() {
+        supabaseClient.removeChannel(
+            messageSubscription
+        );
 
-    showToast(
-        "おくすり登録画面は次の実装で追加します。",
-        "info"
-    );
+    }
 
-}
+    messageSubscription =
+        supabaseClient
+            .channel(
+                `messages-${currentUser.id}`
+            )
+            .on(
 
+                "postgres_changes",
 
-function openMedicationLogModal() {
+                {
+                    event: "INSERT",
+                    schema: "public",
+                    table: "direct_messages"
+                },
 
-    showToast(
-        "服薬記録画面は次の実装で追加します。",
-        "info"
-    );
+                async payload => {
 
-}
+                    const message =
+                        payload.new;
 
+                    if (
+                        message.receiver_id !==
+                        currentUser.id
+                    ) {
 
-function openReminderModal() {
+                        return;
 
-    showToast(
-        "服薬アラーム画面は次の実装で追加します。",
-        "info"
-    );
+                    }
 
-}
+                    if (
+                        selectedChatFriend &&
+                        message.sender_id ===
+                        selectedChatFriend.id
+                    ) {
 
+                        await loadChatMessages(
+                            selectedChatFriend.id
+                        );
 
-function openBodyRecordModal() {
+                    } else {
 
-    showToast(
-        "身体記録画面は次の実装で追加します。",
-        "info"
-    );
+                        await updateUnreadMessageBadge();
 
-}
+                    }
 
+                }
 
-function openVisitModal() {
+            )
+            .subscribe();
 
-    showToast(
-        "通院履歴画面は次の実装で追加します。",
-        "info"
-    );
+    // --------------------------------------------------------
+    // 通知
+    // --------------------------------------------------------
 
-}
+    if (notificationSubscription) {
 
+        supabaseClient.removeChannel(
+            notificationSubscription
+        );
 
-function openAllergyModal() {
+    }
 
-    showToast(
-        "アレルギー登録画面は次の実装で追加します。",
-        "info"
-    );
+    notificationSubscription =
+        supabaseClient
+            .channel(
+                `notifications-${currentUser.id}`
+            )
+            .on(
 
-}
+                "postgres_changes",
 
+                {
+                    event: "INSERT",
+                    schema: "public",
+                    table: "notifications",
+                    filter:
+                        `user_id=eq.${currentUser.id}`
+                },
 
-function openDiagnosisModal() {
+                async () => {
 
-    showToast(
-        "病名登録画面は次の実装で追加します。",
-        "info"
-    );
+                    await loadNotifications();
 
-}
+                    showToast(
+                        "新しい通知があります。",
+                        "success"
+                    );
 
+                }
 
-function openAppointmentModal() {
-
-    showToast(
-        "通院予定画面は次の実装で追加します。",
-        "info"
-    );
-
-}
-
-
-function editMedication() {
-
-    showToast(
-        "編集画面は次の実装で追加します。",
-        "info"
-    );
+            )
+            .subscribe();
 
 }
 
 
 // ============================================================
-// END
+// ㊱ Utilities
+// ============================================================
+
+function escapeHtml(value) {
+
+    if (value === null ||
+        value === undefined) {
+
+        return "";
+
+    }
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+}
+
+
+function formatDate(value) {
+
+    if (!value) return "-";
+
+    const date =
+        new Date(value);
+
+    if (Number.isNaN(
+        date.getTime()
+    )) {
+
+        return "-";
+
+    }
+
+    return date.toLocaleDateString(
+        "ja-JP",
+        {
+            year: "numeric",
+            month: "long",
+            day: "numeric"
+        }
+    );
+
+}
+
+
+function formatTime(value) {
+
+    if (!value) return "-";
+
+    const date =
+        new Date(value);
+
+    if (Number.isNaN(
+        date.getTime()
+    )) {
+
+        return "-";
+
+    }
+
+    return date.toLocaleTimeString(
+        "ja-JP",
+        {
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
+
+}
+
+
+function formatDateTime(value) {
+
+    if (!value) return "-";
+
+    const date =
+        new Date(value);
+
+    if (Number.isNaN(
+        date.getTime()
+    )) {
+
+        return "-";
+
+    }
+
+    return date.toLocaleString(
+        "ja-JP",
+        {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
+
+}
+
+
+function getCurrentDateTimeLocal() {
+
+    const now =
+        new Date();
+
+    const offset =
+        now.getTimezoneOffset();
+
+    const local =
+        new Date(
+            now.getTime() -
+            offset * 60000
+        );
+
+    return local
+        .toISOString()
+        .slice(0, 16);
+
+}
+
+
+// ============================================================
+// ここまで app.js 前半
 // ============================================================

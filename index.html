@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f8fb">
+  <title>MediLog Care</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <div id="auth-screen" class="screen auth-screen">
+    <div class="auth-card">
+      <div class="brand large">
+        <div class="brand-mark">✚</div>
+        <div><strong>MediLog</strong><span>Care</span></div>
+      </div>
+      <p class="auth-subtitle">毎日の健康・服薬を、ひとつの場所で。</p>
+
+      <div class="tabs auth-tabs">
+        <button class="tab active" data-auth-tab="login">ログイン</button>
+        <button class="tab" data-auth-tab="signup">会員登録</button>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <label>メールアドレス<input id="login-email" type="email" autocomplete="email" required></label>
+        <label>パスワード<input id="login-password" type="password" autocomplete="current-password" required></label>
+        <button class="btn primary wide" type="submit">ログイン</button>
+      </form>
+
+      <form id="signup-form" class="auth-form hidden">
+        <label>メールアドレス<input id="signup-email" type="email" autocomplete="email" required></label>
+        <label>ユーザー名<input id="signup-username" type="text" maxlength="40" required></label>
+        <label>パスワード<input id="signup-password" type="password" minlength="6" autocomplete="new-password" required></label>
+        <label>パスワード（確認）<input id="signup-password2" type="password" minlength="6" required></label>
+        <button class="btn primary wide" type="submit">アカウントを作成</button>
+      </form>
+      <p id="auth-message" class="form-message"></p>
+    </div>
+  </div>
+
+  <div id="app-screen" class="screen app-screen hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">✚</div>
+        <div><strong>MediLog</strong><span>Care</span></div>
+      </div>
+      <nav id="main-nav">
+        <button class="nav-item active" data-page="dashboard"><span>⌂</span>ダッシュボード</button>
+        <button class="nav-item" data-page="health"><span>♥</span>体調管理</button>
+        <button class="nav-item" data-page="records"><span>▣</span>自身記録</button>
+        <button class="nav-item" data-page="medications"><span>＋</span>おくすり在庫</button>
+        <button class="nav-item" data-page="medication-log"><span>✓</span>服薬記録</button>
+        <button class="nav-item" data-page="alarms"><span>◷</span>服薬アラーム</button>
+        <button class="nav-item" data-page="appointments"><span>▣</span>通院予定</button>
+        <button class="nav-item" data-page="statistics"><span>▥</span>統計</button>
+        <button class="nav-item" data-page="friends"><span>♧</span>フレンド</button>
+        <button class="nav-item" data-page="notifications"><span>●</span>通知 <i id="notification-badge" class="badge hidden">0</i></button>
+      </nav>
+      <div class="sidebar-bottom">
+        <button class="nav-item" data-page="profile"><span>⚙</span>プロフィール</button>
+        <button id="logout-btn" class="nav-item danger"><span>↪</span>ログアウト</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="mobile-brand brand">
+          <div class="brand-mark">✚</div><div><strong>MediLog</strong><span>Care</span></div>
+        </div>
+        <button id="mobile-menu" class="icon-btn">☰</button>
+        <div class="topbar-title"><span id="page-kicker">MediLog Care</span><h1 id="page-title">ダッシュボード</h1></div>
+        <div class="topbar-actions">
+          <button class="icon-btn" data-page-jump="notifications" title="通知">🔔<i id="top-notification-dot" class="dot hidden"></i></button>
+          <div class="user-chip"><div id="avatar" class="avatar">U</div><span id="top-username">User</span></div>
+        </div>
+      </header>
+
+      <section id="page-dashboard" class="page active-page">
+        <div class="welcome">
+          <div><p class="eyebrow">TODAY</p><h2>こんにちは、<span id="welcome-name">User</span>さん</h2><p id="today-label"></p></div>
+          <button class="btn primary" data-page-jump="health">今日の体調を記録</button>
+        </div>
+        <div class="grid stats-cards">
+          <div class="metric-card"><div class="metric-icon blue">♥</div><div><span>今日の体調記録</span><strong id="dash-health-status">未記録</strong></div></div>
+          <div class="metric-card"><div class="metric-icon purple">＋</div><div><span>服薬回数</span><strong id="dash-med-count">0回</strong></div></div>
+          <div class="metric-card"><div class="metric-icon orange">◷</div><div><span>服薬アラーム</span><strong id="dash-alarm-count">0件</strong></div></div>
+          <div class="metric-card"><div class="metric-icon red">!</div><div><span>在庫少なめ</span><strong id="dash-low-stock">0件</strong></div></div>
+        </div>
+        <div class="grid dashboard-grid">
+          <div class="card">
+            <div class="card-head"><div><h3>今日の血圧</h3><p>朝・昼・晩</p></div><button class="text-btn" data-page-jump="health">記録する →</button></div>
+            <div class="bp-row"><div><span>朝</span><strong id="bp-morning">—</strong></div><div><span>昼</span><strong id="bp-noon">—</strong></div><div><span>晩</span><strong id="bp-night">—</strong></div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>次回の通院</h3><p>予定を確認</p></div><button class="text-btn" data-page-jump="appointments">一覧 →</button></div>
+            <div id="next-appointment" class="appointment-preview empty">次回の通院予定はありません</div>
+          </div>
+        </div>
+        <div class="grid dashboard-grid">
+          <div class="card">
+            <div class="card-head"><div><h3>最近の服薬</h3><p>直近5件</p></div><button class="text-btn" data-page-jump="medication-log">すべて見る →</button></div>
+            <div id="recent-med-logs" class="list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>在庫が少ないおくすり</h3><p>在庫5以下</p></div><button class="text-btn" data-page-jump="medications">管理 →</button></div>
+            <div id="low-stock-list" class="list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="page-health" class="page">
+        <div class="page-heading"><div><p class="eyebrow">DAILY HEALTH</p><h2>体調管理</h2><p>毎日の体調や生活習慣を記録します。</p></div><button id="health-today-btn" class="btn secondary">今日</button></div>
+        <form id="health-form" class="card form-card">
+          <input type="hidden" id="health-id">
+          <div class="section-title">血圧</div>
+          <div class="form-grid three">
+            <label>朝・上<input id="bp-morning-sys" type="number" min="0" placeholder="120"></label>
+            <label>朝・下<input id="bp-morning-dia" type="number" min="0" placeholder="80"></label>
+            <label>朝・脈拍<input id="bp-morning-pulse" type="number" min="0" placeholder="70"></label>
+            <label>昼・上<input id="bp-noon-sys" type="number" min="0"></label>
+            <label>昼・下<input id="bp-noon-dia" type="number" min="0"></label>
+            <label>昼・脈拍<input id="bp-noon-pulse" type="number" min="0"></label>
+            <label>晩・上<input id="bp-night-sys" type="number" min="0"></label>
+            <label>晩・下<input id="bp-night-dia" type="number" min="0"></label>
+            <label>晩・脈拍<input id="bp-night-pulse" type="number" min="0"></label>
+          </div>
+          <div class="section-title">生活習慣</div>
+          <div class="form-grid three">
+            <label>起床時刻<input id="wake-time" type="time"></label>
+            <label>就寝時刻<input id="sleep-time" type="time"></label>
+            <label>食生活<select id="diet"><option value="">選択</option><option>良好</option><option>普通</option><option>やや乱れている</option><option>乱れている</option></select></label>
+            <label>飲酒<select id="alcohol"><option>なし</option><option>少量</option><option>あり</option></select></label>
+            <label>喫煙<select id="smoking"><option>なし</option><option>少量</option><option>あり</option></select></label>
+            <label>こころの状態<select id="mood"><option value="">選択</option><option>とても良い</option><option>良い</option><option>普通</option><option>やや悪い</option><option>悪い</option></select></label>
+          </div>
+          <label>プチ日記<textarea id="daily-note" rows="5" placeholder="今日の出来事や体調など"></textarea></label>
+          <div class="form-actions"><button class="btn primary" type="submit">保存する</button></div>
+        </form>
+        <div class="card"><div class="card-head"><div><h3>記録履歴</h3><p>最近の体調記録</p></div></div><div id="health-history" class="table-wrap"></div></div>
+      </section>
+
+      <section id="page-records" class="page">
+        <div class="page-heading"><div><p class="eyebrow">MY RECORD</p><h2>自身記録</h2><p>身体情報・通院・アレルギー・病名・受診記録を管理します。</p></div></div>
+        <div class="grid two-col">
+          <form id="basic-info-form" class="card form-card">
+            <div class="card-head"><div><h3>基本情報</h3><p>プロフィール情報</p></div></div>
+            <div class="form-grid two">
+              <label>性別<select id="gender"><option value="">選択</option><option>男</option><option>女</option><option>その他</option></select></label>
+              <label>年齢<input id="age" type="number" min="0" max="150"></label>
+              <label>身長（cm）<input id="height" type="number" min="0" step="0.1"></label>
+              <label>体重（kg）<input id="weight" type="number" min="0" step="0.1"></label>
+            </div>
+            <button class="btn primary" type="submit">保存する</button>
+          </form>
+          <form id="medical-profile-form" class="card form-card">
+            <div class="card-head"><div><h3>医療情報</h3><p>現在の情報をまとめて保存</p></div></div>
+            <label>アレルギー<textarea id="allergies" rows="3" placeholder="例：薬剤名、食物など"></textarea></label>
+            <label>持っている病名<textarea id="conditions" rows="3" placeholder="病名を入力"></textarea></label>
+            <button class="btn primary" type="submit">保存する</button>
+          </form>
+        </div>
+        <div class="grid two-col">
+          <form id="visit-form" class="card form-card">
+            <div class="card-head"><div><h3>通院履歴</h3><p>通院先を記録</p></div></div>
+            <label>受診日<input id="visit-date" type="date" required></label>
+            <label>病院名<input id="visit-hospital"></label>
+            <label>診療科<input id="visit-department"></label>
+            <label>医師<input id="visit-doctor"></label>
+            <label>内容<textarea id="visit-note" rows="4"></textarea></label>
+            <button class="btn primary" type="submit">追加する</button>
+          </form>
+          <div class="card"><div class="card-head"><div><h3>通院履歴一覧</h3></div></div><div id="visits-list" class="list"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>受診の記録</h3><p>診察・検査・処置など</p></div><button id="add-encounter-btn" class="btn small secondary">＋ 記録を追加</button></div>
+          <div id="encounters-list" class="list"></div>
+        </div>
+      </section>
+
+      <section id="page-medications" class="page">
+        <div class="page-heading"><div><p class="eyebrow">MEDICATIONS</p><h2>おくすり在庫</h2><p>手元のおくすりを登録・管理します。</p></div><button id="add-medication-btn" class="btn primary">＋ おくすりを追加</button></div>
+        <div class="toolbar"><input id="med-search" class="search" placeholder="おくすり名・製薬会社で検索"><select id="med-filter"><option value="">すべて</option><option>処方</option><option>市販</option><option>個人輸入</option><option>その他</option></select></div>
+        <div id="medications-grid" class="med-grid"></div>
+      </section>
+
+      <section id="page-medication-log" class="page">
+        <div class="page-heading"><div><p class="eyebrow">MEDICATION LOG</p><h2>服薬記録</h2><p>登録済みのおくすりから服用を記録します。</p></div><button id="add-med-log-btn" class="btn primary">＋ 服薬を記録</button></div>
+        <div class="card"><div class="card-head"><div><h3>服薬履歴</h3></div><select id="med-log-range" class="compact-select"><option value="7">過去7日</option><option value="14">過去14日</option><option value="30">過去30日</option><option value="3650">すべて</option></select></div><div id="med-logs-list" class="table-wrap"></div></div>
+      </section>
+
+      <section id="page-alarms" class="page">
+        <div class="page-heading"><div><p class="eyebrow">ALARMS</p><h2>服薬アラーム</h2><p>服用すべき時間を登録します。</p></div><button id="add-alarm-btn" class="btn primary">＋ アラームを追加</button></div>
+        <div id="alarms-list" class="alarm-grid"></div>
+      </section>
+
+      <section id="page-appointments" class="page">
+        <div class="page-heading"><div><p class="eyebrow">APPOINTMENTS</p><h2>次の通院日</h2><p>通院予定と主治医への伝達メモを管理します。</p></div><button id="add-appointment-btn" class="btn primary">＋ 通院予定を追加</button></div>
+        <div id="appointments-list" class="appointment-grid"></div>
+      </section>
+
+      <section id="page-statistics" class="page">
+        <div class="page-heading"><div><p class="eyebrow">STATISTICS</p><h2>統計</h2><p>服薬状況や在庫を見える化します。</p></div><select id="stats-range" class="range-select"><option value="1">1日</option><option value="7" selected>1週間</option><option value="14">2週間</option><option value="30">1か月</option></select></div>
+        <div class="grid stats-cards">
+          <div class="metric-card"><div class="metric-icon purple">✓</div><div><span>期間内の服用回数</span><strong id="stat-total-doses">0回</strong></div></div>
+          <div class="metric-card"><div class="metric-icon blue">＋</div><div><span>登録おくすり</span><strong id="stat-med-total">0種類</strong></div></div>
+          <div class="metric-card"><div class="metric-icon red">!</div><div><span>在庫少なめ</span><strong id="stat-low-stock">0種類</strong></div></div>
+        </div>
+        <div class="grid two-col">
+          <div class="card"><div class="card-head"><div><h3>分類別のおくすり数</h3></div></div><div id="classification-chart" class="bars"></div></div>
+          <div class="card"><div class="card-head"><div><h3>服用回数ランキング</h3></div></div><div id="ranking-list" class="ranking"></div></div>
+        </div>
+        <div class="card"><div class="card-head"><div><h3>在庫が少ないおくすり</h3></div></div><div id="stats-low-stock-list" class="list"></div></div>
+      </section>
+
+      <section id="page-friends" class="page">
+        <div class="page-heading"><div><p class="eyebrow">SOCIAL</p><h2>フレンド</h2><p>ユーザーネームで友だちを探して、健康管理を一緒に。</p></div></div>
+        <div class="grid two-col">
+          <div class="card">
+            <div class="card-head"><div><h3>ユーザーを検索</h3></div></div>
+            <div class="inline-form"><input id="friend-search" placeholder="ユーザーネーム"><button id="friend-search-btn" class="btn primary">検索</button></div>
+            <div id="friend-search-results" class="list"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><div><h3>申請</h3></div></div>
+            <div id="friend-requests" class="list"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>フレンド一覧</h3><p>薬の共有・DMができます。</p></div></div>
+          <div id="friends-list" class="friends-grid"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><div><h3>共有されたおくすり</h3></div></div>
+          <div id="shared-medications-list" class="list"></div>
+        </div>
+      </section>
+
+      <section id="page-notifications" class="page">
+        <div class="page-heading"><div><p class="eyebrow">NOTIFICATIONS</p><h2>通知</h2><p>体調記録・服薬・フレンド関連の通知です。</p></div><button id="mark-all-read" class="btn secondary">すべて既読</button></div>
+        <div class="card"><div id="notifications-list" class="notification-list"></div></div>
+        <div class="card notification-settings">
+          <div class="card-head"><div><h3>通知について</h3><p>ブラウザ通知を利用する場合は許可が必要です。</p></div><button id="request-notification" class="btn primary">通知を許可</button></div>
+          <p class="muted">体調管理リマインダー：6:00 / 12:00 / 18:00　・　服薬アラーム：登録時刻　・　在庫少なめ：2日に1回</p>
+        </div>
+      </section>
+
+      <section id="page-profile" class="page">
+        <div class="page-heading"><div><p class="eyebrow">ACCOUNT</p><h2>プロフィール</h2><p>アカウント情報を確認・編集します。</p></div></div>
+        <form id="profile-form" class="card form-card narrow">
+          <label>メールアドレス<input id="profile-email" type="email" disabled></label>
+          <label>ユーザーネーム<input id="profile-username" maxlength="40" required></label>
+          <button class="btn primary" type="submit">保存する</button>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden"><div class="modal-backdrop"></div><div class="modal-box"><button id="modal-close" class="modal-close">×</button><div id="modal-content"></div></div></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="app.js"></script>
+</body>
+</html>
